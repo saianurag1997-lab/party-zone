@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🎉 Party Zone</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Syne+Mono&display=swap" rel="stylesheet">
+<script src="/socket.io/socket.io.js"></script>
+<style>
+:root {
+  --bg: #0d0d0d;
+  --card: #181818;
+  --border: #2a2a2a;
+  --text: #f0f0f0;
+  --muted: #666;
+  --pink: #ff2d78;
+  --purple: #9b5de5;
+  --cyan: #00f5d4;
+  --yellow: #fee440;
+  --orange: #f15025;
+  --green: #06d6a0;
+  --font: 'Syne', sans-serif;
+  --mono: 'Syne Mono', monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);overflow:hidden;}
+body{display:flex;flex-direction:column;}
+
+/* ── SCREENS ── */
+.screen{display:none;flex-direction:column;height:100%;overflow-y:auto;overflow-x:hidden;}
+.screen.active{display:flex;}
+
+/* ── LANDING ── */
+#landing{align-items:center;justify-content:center;gap:0;padding:32px 24px;background:radial-gradient(ellipse at top,#1a0a2e,#0d0d0d);}
+.logo{text-align:center;margin-bottom:32px;}
+.logo h1{font-size:52px;font-weight:800;line-height:1;background:linear-gradient(135deg,var(--pink),var(--purple),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.logo p{font-size:13px;color:var(--muted);margin-top:8px;letter-spacing:2px;text-transform:uppercase;}
+.landing-btns{display:flex;flex-direction:column;gap:12px;width:100%;max-width:320px;}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:16px 24px;border-radius:14px;font-family:var(--font);font-size:15px;font-weight:700;border:none;cursor:pointer;transition:all .2s;letter-spacing:.5px;}
+.btn:active{transform:scale(.96);}
+.btn-primary{background:var(--pink);color:#fff;}
+.btn-primary:hover{background:#ff5496;}
+.btn-secondary{background:var(--card);color:var(--text);border:1px solid var(--border);}
+.btn-cyan{background:var(--cyan);color:#000;}
+.btn-purple{background:var(--purple);color:#fff;}
+.btn-yellow{background:var(--yellow);color:#000;}
+.btn-ghost{background:transparent;color:var(--muted);font-size:13px;}
+
+/* ── FORMS ── */
+.form-screen{align-items:center;justify-content:center;padding:32px 24px;}
+.form-box{width:100%;max-width:340px;display:flex;flex-direction:column;gap:16px;}
+.form-box h2{font-size:26px;font-weight:800;margin-bottom:4px;}
+.form-box p{font-size:13px;color:var(--muted);}
+.input{width:100%;padding:14px 16px;background:var(--card);border:1.5px solid var(--border);border-radius:12px;color:var(--text);font-family:var(--font);font-size:16px;outline:none;transition:border-color .2s;}
+.input:focus{border-color:var(--pink);}
+.input::placeholder{color:var(--muted);}
+.label{font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:-8px;}
+.error-msg{color:var(--orange);font-size:13px;text-align:center;min-height:18px;}
+
+/* ── GAME SELECTION ── */
+.game-toggles{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.game-toggle{padding:12px 10px;background:var(--card);border:1.5px solid var(--border);border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;transition:all .2s;text-align:center;}
+.game-toggle.on{border-color:var(--pink);background:rgba(255,45,120,.08);}
+.game-toggle .gt-icon{font-size:24px;}
+.game-toggle .gt-name{font-size:10px;font-weight:700;letter-spacing:.5px;color:var(--muted);}
+.game-toggle.on .gt-name{color:var(--pink);}
+
+/* ── LOBBY ── */
+#lobby{padding:0;}
+.lobby-header{padding:20px 20px 12px;background:linear-gradient(180deg,#1a0820,transparent);border-bottom:1px solid var(--border);}
+.room-code-display{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.code-badge{font-family:var(--mono);font-size:32px;font-weight:700;color:var(--yellow);letter-spacing:4px;}
+.code-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+.qr-wrap{text-align:center;padding:16px;}
+.qr-wrap img{width:160px;height:160px;border-radius:12px;border:4px solid var(--border);}
+.qr-url{font-size:13px;color:var(--cyan);margin-top:8px;font-family:var(--mono);}
+.players-section{padding:16px 20px;}
+.section-title{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:12px;}
+.players-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.player-chip{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 6px;text-align:center;}
+.player-chip .pc-emoji{font-size:22px;}
+.player-chip .pc-name{font-size:11px;font-weight:700;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.player-chip.host{border-color:var(--yellow);}
+.lobby-footer{padding:16px 20px 32px;margin-top:auto;}
+.waiting-msg{text-align:center;font-size:13px;color:var(--muted);margin-bottom:12px;}
+
+/* ── GAME SCREEN ── */
+#game{padding:0;}
+.game-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg);position:sticky;top:0;z-index:10;}
+.game-tag{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:4px 10px;border-radius:999px;}
+.tag-nhie{background:rgba(0,245,212,.15);color:var(--cyan);}
+.tag-wyr{background:rgba(155,93,229,.15);color:var(--purple);}
+.tag-mlt{background:rgba(255,45,120,.15);color:var(--pink);}
+.tag-trivia{background:rgba(254,228,64,.15);color:var(--yellow);}
+.tag-hot{background:rgba(241,80,37,.15);color:var(--orange);}
+.tag-rapid{background:rgba(6,214,160,.15);color:var(--green);}
+.tag-spin{background:rgba(255,45,120,.15);color:var(--pink);}
+.player-scores{display:flex;gap:8px;overflow-x:auto;padding:0 4px;}
+.score-chip{display:flex;align-items:center;gap:4px;font-size:11px;white-space:nowrap;background:var(--card);padding:3px 8px;border-radius:999px;}
+
+.card-area{flex:1;padding:20px 16px;display:flex;flex-direction:column;gap:16px;}
+
+/* ── CARD TYPES ── */
+.big-card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:24px;animation:slideUp .3s ease;}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
+.card-eyebrow{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;}
+.card-text{font-size:20px;font-weight:700;line-height:1.4;}
+.card-sub{font-size:13px;color:var(--muted);margin-top:8px;}
+
+/* WYR */
+.wyr-options{display:flex;flex-direction:column;gap:10px;margin-top:4px;}
+.wyr-btn{padding:16px;background:var(--bg);border:1.5px solid var(--border);border-radius:14px;font-family:var(--font);font-size:15px;font-weight:600;color:var(--text);cursor:pointer;text-align:left;transition:all .2s;line-height:1.3;}
+.wyr-btn.a-btn:hover,.wyr-btn.a-btn.voted{border-color:var(--cyan);background:rgba(0,245,212,.08);color:var(--cyan);}
+.wyr-btn.b-btn:hover,.wyr-btn.b-btn.voted{border-color:var(--purple);background:rgba(155,93,229,.08);color:var(--purple);}
+.wyr-vs{text-align:center;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:2px;}
+
+/* MLT */
+.players-vote-list{display:flex;flex-direction:column;gap:8px;margin-top:4px;}
+.vote-player-btn{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--bg);border:1.5px solid var(--border);border-radius:14px;cursor:pointer;transition:all .2s;font-family:var(--font);}
+.vote-player-btn:hover,.vote-player-btn.voted{border-color:var(--pink);background:rgba(255,45,120,.08);}
+.vote-player-btn .vp-emoji{font-size:22px;}
+.vote-player-btn .vp-name{font-size:15px;font-weight:700;color:var(--text);}
+
+/* TRIVIA */
+.trivia-options{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;}
+.trivia-btn{padding:14px 10px;background:var(--bg);border:1.5px solid var(--border);border-radius:12px;font-family:var(--font);font-size:13px;font-weight:600;color:var(--text);cursor:pointer;text-align:center;line-height:1.3;transition:all .2s;}
+.trivia-btn:hover,.trivia-btn.voted{border-color:var(--yellow);background:rgba(254,228,64,.08);color:var(--yellow);}
+.trivia-btn.correct{border-color:var(--green);background:rgba(6,214,160,.15);color:var(--green);}
+.trivia-btn.wrong{border-color:var(--orange);background:rgba(241,80,37,.08);color:var(--orange);}
+
+/* HOT TAKES */
+.hot-btns{display:flex;gap:12px;margin-top:4px;}
+.hot-btn{flex:1;padding:20px 16px;border-radius:14px;font-family:var(--font);font-size:16px;font-weight:800;cursor:pointer;border:none;transition:all .2s;text-align:center;}
+.hot-btn:active{transform:scale(.95);}
+.agree-btn{background:rgba(6,214,160,.15);border:1.5px solid var(--green);color:var(--green);}
+.agree-btn.voted,.agree-btn:hover{background:var(--green);color:#000;}
+.disagree-btn{background:rgba(255,45,120,.15);border:1.5px solid var(--pink);color:var(--pink);}
+.disagree-btn.voted,.disagree-btn:hover{background:var(--pink);color:#fff;}
+
+/* SPIN */
+.spin-area{display:flex;flex-direction:column;align-items:center;gap:20px;padding:16px;}
+.spin-wheel{width:200px;height:200px;border-radius:50%;position:relative;display:flex;align-items:center;justify-content:center;background:conic-gradient(var(--pink) 0deg 51.4deg,var(--purple) 51.4deg 102.8deg,var(--cyan) 102.8deg 154.2deg,var(--yellow) 154.2deg 205.6deg,var(--orange) 205.6deg 257deg,var(--green) 257deg 308.4deg,#ff9f1c 308.4deg 360deg);transition:transform 3s cubic-bezier(.17,.67,.12,.99);border:4px solid var(--border);}
+.spin-center{width:40px;height:40px;background:var(--bg);border-radius:50%;border:3px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;position:relative;z-index:2;}
+.spin-pointer{font-size:32px;line-height:1;}
+.spin-result{font-size:28px;font-weight:800;color:var(--pink);text-align:center;animation:pop .3s ease;}
+@keyframes pop{from{transform:scale(.5);opacity:0;}to{transform:scale(1);opacity:1;}}
+
+/* RAPID FIRE */
+.timer-ring{width:100px;height:100px;margin:0 auto;}
+.timer-text{font-family:var(--mono);font-size:36px;font-weight:700;text-align:center;color:var(--yellow);}
+.rapid-prompt{font-size:22px;font-weight:800;text-align:center;line-height:1.3;}
+
+/* RESULTS */
+.result-bar{display:flex;align-items:center;gap:10px;padding:10px 0;}
+.result-label{font-size:14px;font-weight:600;min-width:80px;}
+.result-fill-wrap{flex:1;background:var(--border);border-radius:999px;height:8px;overflow:hidden;}
+.result-fill{height:100%;border-radius:999px;transition:width .6s ease;}
+.result-count{font-size:12px;color:var(--muted);min-width:24px;text-align:right;}
+
+/* PROGRESS */
+.vote-progress{text-align:center;font-size:12px;color:var(--muted);padding:8px;}
+.voted-dots{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;}
+.vote-dot{width:8px;height:8px;border-radius:50%;background:var(--border);}
+.vote-dot.done{background:var(--cyan);}
+
+/* HOST CONTROLS */
+.host-bar{padding:12px 16px;border-top:1px solid var(--border);background:var(--bg);display:flex;gap:10px;flex-shrink:0;}
+.host-bar .btn{flex:1;padding:14px;font-size:14px;}
+
+/* SCOREBOARD */
+.scoreboard{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;}
+.score-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);}
+.score-row:last-child{border:none;}
+.score-rank{font-family:var(--mono);font-size:18px;font-weight:700;width:28px;color:var(--muted);}
+.score-row.top .score-rank{color:var(--yellow);}
+.score-player{flex:1;}
+.score-player-name{font-size:15px;font-weight:700;}
+.score-player-emoji{font-size:12px;}
+.score-pts{font-family:var(--mono);font-size:20px;font-weight:700;color:var(--pink);}
+
+/* NHIE */
+.nhie-actions{display:flex;gap:10px;margin-top:8px;}
+.nhie-btn{flex:1;padding:16px;border-radius:14px;font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer;border:none;transition:all .2s;}
+.nhie-yes{background:rgba(241,80,37,.15);border:1.5px solid var(--orange);color:var(--orange);}
+.nhie-yes:hover{background:var(--orange);color:#fff;}
+.nhie-no{background:rgba(6,214,160,.15);border:1.5px solid var(--green);color:var(--green);}
+.nhie-no:hover{background:var(--green);color:#000;}
+.nhie-tally{display:flex;gap:16px;justify-content:center;margin-top:8px;}
+.nhie-count{text-align:center;}
+.nhie-count .nc-n{font-family:var(--mono);font-size:32px;font-weight:700;}
+.nhie-count .nc-l{font-size:11px;color:var(--muted);}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);padding:12px 20px;border-radius:10px;font-size:14px;font-weight:600;z-index:9999;animation:slideUp .2s ease;white-space:nowrap;}
+
+/* UTILS */
+.divider{height:1px;background:var(--border);margin:4px 0;}
+.text-center{text-align:center;}
+.mt-8{margin-top:8px;}
+.mt-16{margin-top:16px;}
+.flex-center{display:flex;align-items:center;justify-content:center;}
+.gap-8{gap:8px;}
+</style>
+</head>
+<body>
+
+<!-- LANDING -->
+<div id="landing" class="screen active">
+  <div class="logo">
+    <h1>PARTY<br>ZONE</h1>
+    <p>The drinking game hub 🍺</p>
+  </div>
+  <div class="landing-btns">
+    <button class="btn btn-primary" onclick="showScreen('create-screen')">🎉 Host a Game</button>
+    <button class="btn btn-secondary" onclick="showScreen('join-screen')">📱 Join a Room</button>
+  </div>
+</div>
+
+<!-- CREATE ROOM -->
+<div id="create-screen" class="screen form-screen">
+  <div class="form-box">
+    <h2>Host a Game 🎉</h2>
+    <p>Set up your party room</p>
+    <div class="label">Your Name</div>
+    <input class="input" id="host-name" placeholder="What do they call you?" maxlength="16">
+    <div class="label">Games to Include</div>
+    <div class="game-toggles" id="game-toggles">
+      <div class="game-toggle on" data-game="nhie"><div class="gt-icon">🍺</div><div class="gt-name">Never Have I Ever</div></div>
+      <div class="game-toggle on" data-game="wyr"><div class="gt-icon">🤔</div><div class="gt-name">Would You Rather</div></div>
+      <div class="game-toggle on" data-game="mlt"><div class="gt-icon">👉</div><div class="gt-name">Most Likely To</div></div>
+      <div class="game-toggle on" data-game="trivia"><div class="gt-icon">🧠</div><div class="gt-name">Drunk Trivia</div></div>
+      <div class="game-toggle on" data-game="hot"><div class="gt-icon">🌶️</div><div class="gt-name">Hot Takes</div></div>
+      <div class="game-toggle on" data-game="rapid"><div class="gt-icon">⚡</div><div class="gt-name">Rapid Fire</div></div>
+      <div class="game-toggle on" data-game="spin"><div class="gt-icon">🍾</div><div class="gt-name">Spin the Bottle</div></div>
+    </div>
+    <div class="error-msg" id="create-error"></div>
+    <button class="btn btn-primary" onclick="createRoom()">Create Room →</button>
+    <button class="btn btn-ghost" onclick="showScreen('landing')">← Back</button>
+  </div>
+</div>
+
+<!-- JOIN ROOM -->
+<div id="join-screen" class="screen form-screen">
+  <div class="form-box">
+    <h2>Join a Room 📱</h2>
+    <p>Ask the host for the room code</p>
+    <div class="label">Your Name</div>
+    <input class="input" id="join-name" placeholder="What do they call you?" maxlength="16">
+    <div class="label">Room Code</div>
+    <input class="input" id="join-code" placeholder="e.g. XKQP" maxlength="4" style="text-transform:uppercase;letter-spacing:4px;font-size:24px;font-family:var(--mono);">
+    <div class="error-msg" id="join-error"></div>
+    <button class="btn btn-cyan" onclick="joinRoom()">Join Party →</button>
+    <button class="btn btn-ghost" onclick="showScreen('landing')">← Back</button>
+  </div>
+</div>
+
+<!-- LOBBY -->
+<div id="lobby" class="screen">
+  <div class="lobby-header">
+    <div class="code-label">ROOM CODE</div>
+    <div class="room-code-display">
+      <div class="code-badge" id="lobby-code">----</div>
+      <button class="btn btn-secondary" style="padding:8px 14px;font-size:12px;" onclick="copyCode()">Copy</button>
+    </div>
+    <div style="font-size:12px;color:var(--muted);">Share this code or scan QR — everyone joins from their phone</div>
+  </div>
+  <div class="qr-wrap" id="qr-wrap" style="display:none">
+    <img id="qr-img" src="" alt="QR">
+    <div class="qr-url" id="qr-url"></div>
+  </div>
+  <div class="players-section">
+    <div class="section-title">Players (<span id="player-count">0</span>/12)</div>
+    <div class="players-grid" id="players-grid"></div>
+  </div>
+  <div class="lobby-footer">
+    <div class="waiting-msg" id="waiting-msg">Waiting for players to join...</div>
+    <button class="btn btn-primary" id="start-btn" onclick="startGame()" style="display:none;width:100%;">Start Game 🎉</button>
+  </div>
+</div>
+
+<!-- GAME -->
+<div id="game" class="screen">
+  <div class="game-header">
+    <div class="game-tag" id="game-tag">GAME</div>
+    <div class="player-scores" id="player-scores"></div>
+  </div>
+  <div class="card-area" id="card-area">
+    <!-- dynamic content -->
+  </div>
+  <div class="host-bar" id="host-bar" style="display:none;">
+    <button class="btn btn-secondary" onclick="nextCard()">Next Card ⚡</button>
+    <button class="btn btn-ghost" style="flex:0;padding:14px 12px;" onclick="showScoreboard()">🏆</button>
+  </div>
+</div>
+
+<script>
+const socket = io();
+let myId = null, myRoom = null, isHost = false, currentRoom = null, myVote = null;
+let spinDeg = 0, timerInterval = null;
+
+// ── NAVIGATION ────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ── GAME TOGGLES ─────────────────────────────────────────
+document.querySelectorAll('.game-toggle').forEach(el => {
+  el.addEventListener('click', () => el.classList.toggle('on'));
+});
+
+// ── CREATE ROOM ───────────────────────────────────────────
+function createRoom() {
+  const name = document.getElementById('host-name').value.trim();
+  if (!name) { document.getElementById('create-error').textContent = 'Please enter your name'; return; }
+  const games = [...document.querySelectorAll('.game-toggle.on')].map(el => el.dataset.game);
+  if (!games.length) { document.getElementById('create-error').textContent = 'Pick at least one game!'; return; }
+  socket.emit('create_room', { name, games });
+}
+
+// ── JOIN ROOM ─────────────────────────────────────────────
+function joinRoom() {
+  const name = document.getElementById('join-name').value.trim();
+  const code = document.getElementById('join-code').value.trim().toUpperCase();
+  if (!name) { document.getElementById('join-error').textContent = 'Please enter your name'; return; }
+  if (code.length !== 4) { document.getElementById('join-error').textContent = 'Enter the 4-letter room code'; return; }
+  socket.emit('join_room', { name, code });
+}
+
+socket.on('joined', ({ code, playerId }) => {
+  myId = playerId;
+  myRoom = code;
+  showScreen('lobby');
+  document.getElementById('lobby-code').textContent = code;
+  loadQR();
+});
+
+socket.on('error', msg => {
+  showToast('❌ ' + msg);
+  document.getElementById('join-error').textContent = msg;
+  document.getElementById('create-error').textContent = msg;
+});
+
+// ── QR CODE ───────────────────────────────────────────────
+async function loadQR() {
+  try {
+    const res = await fetch('/qr');
+    const data = await res.json();
+    document.getElementById('qr-img').src = data.qr;
+    document.getElementById('qr-url').textContent = data.url;
+    document.getElementById('qr-wrap').style.display = 'block';
+  } catch(e) {}
+}
+
+// ── ROOM UPDATE ───────────────────────────────────────────
+socket.on('room_update', (room) => {
+  currentRoom = room;
+  isHost = room.host === myId;
+
+  if (room.state === 'lobby') {
+    renderLobby(room);
+    showScreen('lobby');
+  } else {
+    showScreen('game');
+    renderGame(room);
+  }
+});
+
+function renderLobby(room) {
+  document.getElementById('player-count').textContent = room.players.length;
+  document.getElementById('players-grid').innerHTML = room.players.map(p => `
+    <div class="player-chip ${p.isHost ? 'host' : ''}">
+      <div class="pc-emoji">${p.emoji}</div>
+      <div class="pc-name">${p.name}${p.isHost ? ' 👑' : ''}</div>
+    </div>
+  `).join('');
+  const startBtn = document.getElementById('start-btn');
+  const waitMsg = document.getElementById('waiting-msg');
+  if (isHost) {
+    startBtn.style.display = room.players.length >= 2 ? 'block' : 'none';
+    waitMsg.textContent = room.players.length < 2 ? 'Waiting for at least 2 players...' : `${room.players.length} players ready — start when everyone's in!`;
+  } else {
+    startBtn.style.display = 'none';
+    waitMsg.textContent = `Waiting for ${room.players.find(p=>p.isHost)?.name || 'host'} to start...`;
+  }
+}
+
+function startGame() { socket.emit('start_game'); }
+function nextCard() { socket.emit('next_card'); myVote = null; }
+
+// ── GAME RENDER ───────────────────────────────────────────
+function renderGame(room) {
+  const card = room.currentCard;
+  if (!card) return;
+
+  // scores bar
+  const sorted = [...room.players].sort((a,b) => b.score - a.score);
+  document.getElementById('player-scores').innerHTML = sorted.map(p =>
+    `<div class="score-chip">${p.emoji} ${p.name} <strong>${p.score}</strong></div>`
+  ).join('');
+
+  // tag
+  const tags = { nhie:'NEVER HAVE I EVER', wyr:'WOULD YOU RATHER', mlt:'MOST LIKELY TO', trivia:'TRIVIA', hot:'HOT TAKE', rapid:'RAPID FIRE', spin:'SPIN THE BOTTLE' };
+  const tagEl = document.getElementById('game-tag');
+  tagEl.textContent = tags[card.type] || card.type;
+  tagEl.className = `game-tag tag-${card.type}`;
+
+  // host bar
+  document.getElementById('host-bar').style.display = isHost ? 'flex' : 'none';
+
+  // render card
+  const area = document.getElementById('card-area');
+  if (card.type === 'nhie') renderNHIE(area, card, room);
+  else if (card.type === 'wyr') renderWYR(area, card, room);
+  else if (card.type === 'mlt') renderMLT(area, card, room);
+  else if (card.type === 'trivia') renderTrivia(area, card, room);
+  else if (card.type === 'hot') renderHot(area, card, room);
+  else if (card.type === 'rapid') renderRapid(area, card, room);
+  else if (card.type === 'spin') renderSpin(area, card, room);
+
+  renderScoreboard(area, room);
+}
+
+function renderNHIE(area, card, room) {
+  area.innerHTML = `
+    <div class="big-card">
+      <div class="card-eyebrow" style="color:var(--cyan)">🍺 If you HAVE done it — DRINK!</div>
+      <div class="card-text">${card.data}</div>
+    </div>
+    <div class="nhie-actions">
+      <button class="nhie-btn nhie-yes" onclick="voteNHIE('yes')" id="nhie-yes">😅 I have (DRINK)</button>
+      <button class="nhie-btn nhie-no" onclick="voteNHIE('no')" id="nhie-no">😇 Never!</button>
+    </div>
+    <div class="nhie-tally">
+      <div class="nhie-count"><div class="nc-n" id="nhie-y-count" style="color:var(--orange)">0</div><div class="nc-l">Drinking</div></div>
+      <div class="nhie-count"><div class="nc-n" id="nhie-n-count" style="color:var(--green)">0</div><div class="nc-l">Safe</div></div>
+    </div>
+    <div class="vote-progress"><span id="nhie-progress">0/${room.players.length} responded</span></div>
+  `;
+}
+
+function voteNHIE(val) {
+  if (myVote) return;
+  myVote = val;
+  socket.emit('vote', { value: val });
+  document.getElementById('nhie-yes')?.classList.toggle('voted', val==='yes');
+  document.getElementById('nhie-no')?.classList.toggle('voted', val==='no');
+}
+
+socket.on('votes_update', ({ votes, total, count }) => {
+  if (!currentRoom?.currentCard) return;
+  const card = currentRoom.currentCard;
+  if (card.type === 'nhie') {
+    const vals = Object.values(votes);
+    document.getElementById('nhie-y-count')?.textContent !== undefined && (document.getElementById('nhie-y-count').textContent = vals.filter(v=>v==='yes').length);
+    document.getElementById('nhie-n-count') && (document.getElementById('nhie-n-count').textContent = vals.filter(v=>v==='no').length);
+    document.getElementById('nhie-progress') && (document.getElementById('nhie-progress').textContent = `${count}/${total} responded`);
+    const dots = document.getElementById('vote-dots');
+    if (dots) dots.innerHTML = Array.from({length:total},(_,i)=>`<div class="vote-dot ${i<count?'done':''}"></div>`).join('');
+  }
+  if (card.type === 'wyr') {
+    const vals = Object.values(votes);
+    const aCount = vals.filter(v=>v==='a').length;
+    const bCount = vals.filter(v=>v==='b').length;
+    document.getElementById('wyr-progress') && (document.getElementById('wyr-progress').textContent = `${count}/${total} voted`);
+    if (document.getElementById('wyr-a-bar')) {
+      document.getElementById('wyr-a-bar').style.width = total ? `${aCount/total*100}%` : '0%';
+      document.getElementById('wyr-b-bar').style.width = total ? `${bCount/total*100}%` : '0%';
+      document.getElementById('wyr-a-n').textContent = aCount;
+      document.getElementById('wyr-b-n').textContent = bCount;
+    }
+  }
+});
+
+function renderWYR(area, card, room) {
+  area.innerHTML = `
+    <div class="big-card">
+      <div class="card-eyebrow" style="color:var(--purple)">🤔 Would you rather...</div>
+      <div class="wyr-options">
+        <button class="wyr-btn a-btn ${myVote==='a'?'voted':''}" onclick="vote('a')" id="wyr-a">
+          <span style="font-size:11px;opacity:.6;font-weight:700;letter-spacing:1px;">OPTION A</span><br>
+          ${card.data.a}
+        </button>
+        <div class="wyr-vs">— OR —</div>
+        <button class="wyr-btn b-btn ${myVote==='b'?'voted':''}" onclick="vote('b')" id="wyr-b">
+          <span style="font-size:11px;opacity:.6;font-weight:700;letter-spacing:1px;">OPTION B</span><br>
+          ${card.data.b}
+        </button>
+      </div>
+    </div>
+    <div class="vote-progress" id="wyr-progress">0/${room.players.length} voted</div>
+    <div class="result-bar"><div class="result-label" style="color:var(--cyan)">A</div><div class="result-fill-wrap"><div class="result-fill" id="wyr-a-bar" style="width:0%;background:var(--cyan)"></div></div><div class="result-count" id="wyr-a-n">0</div></div>
+    <div class="result-bar"><div class="result-label" style="color:var(--purple)">B</div><div class="result-fill-wrap"><div class="result-fill" id="wyr-b-bar" style="width:0%;background:var(--purple)"></div></div><div class="result-count" id="wyr-b-n">0</div></div>
+  `;
+}
+
+function renderMLT(area, card, room) {
+  const others = room.players.filter(p => p.id !== myId);
+  area.innerHTML = `
+    <div class="big-card">
+      <div class="card-eyebrow" style="color:var(--pink)">👉 Most Likely To...</div>
+      <div class="card-text">${card.data}</div>
+    </div>
+    <div class="players-vote-list">
+      ${others.map(p => `
+        <button class="vote-player-btn ${myVote===p.name?'voted':''}" onclick="vote('${p.name}')" id="vp-${p.id}">
+          <div class="vp-emoji">${p.emoji}</div>
+          <div class="vp-name">${p.name}</div>
+        </button>
+      `).join('')}
+    </div>
+    <div class="voted-dots" id="vote-dots">
+      ${Array.from({length:room.players.length},(_,i)=>`<div class="vote-dot"></div>`).join('')}
+    </div>
+  `;
+}
+
+function renderTrivia(area, card, room) {
+  area.innerHTML = `
+    <div class="big-card">
+      <div class="card-eyebrow" style="color:var(--yellow)">🧠 Trivia — First correct answer gets a point!</div>
+      <div class="card-text">${card.data.q}</div>
+    </div>
+    <div class="trivia-options">
+      ${card.data.options.map(opt => `
+        <button class="trivia-btn ${myVote===opt?'voted':''}" onclick="vote('${opt.replace(/'/g,"\\'")}'); this.classList.add('voted')" id="tq-${opt.replace(/\s/g,'_')}">
+          ${opt}
+        </button>
+      `).join('')}
+    </div>
+    <div class="voted-dots" id="vote-dots">
+      ${Array.from({length:room.players.length},(_,i)=>`<div class="vote-dot"></div>`).join('')}
+    </div>
+  `;
+}
+
+function renderHot(area, card, room) {
+  area.innerHTML = `
+    <div class="big-card">
+      <div class="card-eyebrow" style="color:var(--orange)">🌶️ Hot Take — Agree or Disagree?</div>
+      <div class="card-text">"${card.data}"</div>
+    </div>
+    <div class="hot-btns">
+      <button class="hot-btn agree-btn ${myVote==='agree'?'voted':''}" onclick="vote('agree')">✅<br>AGREE</button>
+      <button class="hot-btn disagree-btn ${myVote==='disagree'?'voted':''}" onclick="vote('disagree')">❌<br>NOPE</button>
+    </div>
+    <div id="hot-results"></div>
+    <div class="voted-dots" id="vote-dots">
+      ${Array.from({length:room.players.length},(_,i)=>`<div class="vote-dot"></div>`).join('')}
+    </div>
+  `;
+}
+
+function renderRapid(area, card) {
+  clearInterval(timerInterval);
+  const isTimer = card.data.type === 'timer';
+  area.innerHTML = `
+    <div class="big-card" style="text-align:center;">
+      <div class="card-eyebrow" style="color:var(--green)">⚡ RAPID FIRE</div>
+      <div class="rapid-prompt mt-8">${card.data.prompt}</div>
+    </div>
+    ${isTimer ? `
+      <div style="text-align:center;">
+        <div class="timer-text" id="timer-display">${card.data.seconds}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px;">seconds</div>
+      </div>
+      <button class="btn btn-yellow" onclick="startTimer(${card.data.seconds})">Start Timer ▶</button>
+    ` : `<div style="text-align:center;font-size:40px;padding:20px;">🎉</div>`}
+  `;
+}
+
+function startTimer(secs) {
+  clearInterval(timerInterval);
+  let t = secs;
+  document.getElementById('timer-display').textContent = t;
+  timerInterval = setInterval(() => {
+    t--;
+    const el = document.getElementById('timer-display');
+    if (!el) { clearInterval(timerInterval); return; }
+    el.textContent = t;
+    el.style.color = t <= 3 ? 'var(--pink)' : 'var(--yellow)';
+    if (t <= 0) { clearInterval(timerInterval); el.textContent = '⏰'; showToast("TIME'S UP!"); }
+  }, 1000);
+}
+
+function renderSpin(area, card, room) {
+  const result = currentRoom?.spinResult;
+  area.innerHTML = `
+    <div class="big-card text-center">
+      <div class="card-eyebrow" style="color:var(--pink)">🍾 Spin the Bottle</div>
+      <div class="card-text mt-8">Who gets the dare?</div>
+    </div>
+    <div class="spin-area">
+      <div style="font-size:32px">👆</div>
+      <div class="spin-wheel" id="spin-wheel">
+        <div class="spin-center">🍾</div>
+      </div>
+      ${result ? `<div class="spin-result">👉 ${result}!</div>` : ''}
+      <button class="btn btn-primary" onclick="doSpin()">SPIN 🎰</button>
+    </div>
+  `;
+}
+
+function doSpin() {
+  spinDeg += 1440 + Math.random() * 1440;
+  const wheel = document.getElementById('spin-wheel');
+  if (wheel) wheel.style.transform = `rotate(${spinDeg}deg)`;
+  setTimeout(() => socket.emit('spin'), 2800);
+}
+
+function vote(val) {
+  if (myVote) return;
+  myVote = val;
+  socket.emit('vote', { value: val });
+}
+
+// ── VOTE RESULTS ──────────────────────────────────────────
+socket.on('vote_result', (result) => {
+  if (result.type === 'mlt') {
+    const area = document.getElementById('card-area');
+    const existing = area.querySelector('.result-section');
+    if (!existing) {
+      const div = document.createElement('div');
+      div.className = 'result-section big-card';
+      div.innerHTML = `
+        <div class="card-eyebrow" style="color:var(--pink)">🏆 The verdict...</div>
+        ${Object.entries(result.tally).sort((a,b)=>b[1]-a[1]).map(([name,count]) => `
+          <div class="result-bar">
+            <div class="result-label">${name}</div>
+            <div class="result-fill-wrap"><div class="result-fill" style="width:${count/(Object.values(result.tally).reduce((a,b)=>a+b,0))*100}%;background:var(--pink)"></div></div>
+            <div class="result-count">${count}</div>
+          </div>
+        `).join('')}
+        <div style="margin-top:8px;font-size:13px;color:var(--pink);font-weight:700;">👑 Most votes: ${result.winner}</div>
+      `;
+      area.insertBefore(div, area.lastElementChild);
+    }
+  } else if (result.type === 'hot') {
+    const el = document.getElementById('hot-results');
+    if (el) el.innerHTML = `
+      <div class="result-bar"><div class="result-label" style="color:var(--green)">✅ Agree</div><div class="result-fill-wrap"><div class="result-fill" style="width:${result.total?result.agree/result.total*100:0}%;background:var(--green)"></div></div><div class="result-count">${result.agree}</div></div>
+      <div class="result-bar"><div class="result-label" style="color:var(--pink)">❌ Nope</div><div class="result-fill-wrap"><div class="result-fill" style="width:${result.total?result.disagree/result.total*100:0}%;background:var(--pink)"></div></div><div class="result-count">${result.disagree}</div></div>
+    `;
+  } else if (result.type === 'trivia') {
+    document.querySelectorAll('.trivia-btn').forEach(btn => {
+      if (btn.textContent.trim() === result.correct) btn.classList.add('correct');
+      else if (btn.classList.contains('voted')) btn.classList.add('wrong');
+    });
+    showToast(`✅ Answer: ${result.correct}`);
+  }
+});
+
+// ── SCOREBOARD ────────────────────────────────────────────
+function renderScoreboard(area, room) {
+  const sorted = [...room.players].sort((a,b) => b.score - a.score);
+  const div = document.createElement('div');
+  div.className = 'scoreboard';
+  div.innerHTML = `
+    <div class="section-title">🏆 Leaderboard</div>
+    ${sorted.map((p,i) => `
+      <div class="score-row ${i===0?'top':''}">
+        <div class="score-rank">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</div>
+        <div class="score-player">
+          <div class="score-player-name">${p.emoji} ${p.name}</div>
+          <div class="score-player-emoji">${p.id===myId?'(you)':''}</div>
+        </div>
+        <div class="score-pts">${p.score}pts</div>
+      </div>
+    `).join('')}
+  `;
+  area.appendChild(div);
+}
+
+function showScoreboard() {
+  if (!currentRoom) return;
+  const sorted = [...currentRoom.players].sort((a,b) => b.score - a.score);
+  showToast(`🥇 ${sorted[0]?.emoji} ${sorted[0]?.name} leads with ${sorted[0]?.score} pts!`);
+}
+
+// ── UTILS ─────────────────────────────────────────────────
+function copyCode() {
+  const code = document.getElementById('lobby-code').textContent;
+  navigator.clipboard.writeText(code).then(() => showToast('📋 Code copied!'));
+}
+
+let toastTimer;
+function showToast(msg) {
+  clearTimeout(toastTimer);
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  toastTimer = setTimeout(() => toast.remove(), 3000);
+}
+
+// Auto-uppercase join code
+document.getElementById('join-code')?.addEventListener('input', function() {
+  this.value = this.value.toUpperCase();
+});
+</script>
+</body>
+</html>
