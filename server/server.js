@@ -405,3 +405,4 @@ server.listen(PORT, '0.0.0.0', () => {
   const ip = getLocalIP();
   console.log(`\n🎉 Party Zone running!\n📱 http://${ip}:${PORT}\n`);
 });
+ 
