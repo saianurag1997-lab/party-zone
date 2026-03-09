@@ -11,6 +11,7 @@ const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
 
 app.use(express.static(path.join(__dirname, '../client')));
+console.log('Serving client from:', path.join(__dirname, '../client'));
 
 function getLocalIP() {
   const nets = os.networkInterfaces();
