@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🦑 Squid Game Party</title>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0a0a;
+  --pink: #ff0066;
+  --green: #00ff88;
+  --red: #ff1a1a;
+  --gold: #ffd700;
+  --card: #141414;
+  --border: #222;
+  --text: #f5f5f5;
+  --muted: #555;
+  --font: 'Black Han Sans', sans-serif;
+  --body: 'Noto Sans KR', sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--body);overflow:hidden;}
+body{display:flex;flex-direction:column;}
+
+/* SCREENS */
+.screen{display:none;flex-direction:column;height:100%;overflow-y:auto;}
+.screen.active{display:flex;}
+
+/* SCANLINES OVERLAY */
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.03) 2px,rgba(0,0,0,.03) 4px);pointer-events:none;z-index:9999;}
+
+/* ── MENU ── */
+#menu{align-items:center;justify-content:center;gap:0;padding:32px 24px;background:radial-gradient(ellipse at 50% 0%,#1a0010,#0a0a0a 70%);}
+.logo-wrap{text-align:center;margin-bottom:40px;}
+.squid-logo{font-family:var(--font);font-size:56px;line-height:1;color:var(--pink);text-shadow:0 0 40px rgba(255,0,102,.5),0 0 80px rgba(255,0,102,.2);}
+.squid-sub{font-size:11px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);margin-top:8px;}
+.shapes{display:flex;gap:20px;justify-content:center;margin:16px 0 32px;}
+.shape{width:36px;height:36px;border:2.5px solid var(--pink);opacity:.6;}
+.shape.circle{border-radius:50%;}
+.shape.tri{border:none;width:0;height:0;border-left:18px solid transparent;border-right:18px solid transparent;border-bottom:32px solid transparent;border-bottom-color:var(--pink);}
+.shape.sq{border-radius:2px;}
+.lives-display{display:flex;gap:8px;justify-content:center;margin-bottom:24px;}
+.life{font-size:20px;transition:all .3s;}
+.life.lost{opacity:.2;filter:grayscale(1);}
+.games-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:360px;}
+.game-card{background:var(--card);border:1.5px solid var(--border);border-radius:16px;padding:20px 14px;text-align:center;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;}
+.game-card::before{content:'';position:absolute;inset:0;background:var(--pink);opacity:0;transition:opacity .2s;}
+.game-card:active::before{opacity:.08;}
+.game-card:hover{border-color:var(--pink);transform:translateY(-2px);}
+.gc-icon{font-size:36px;margin-bottom:8px;}
+.gc-name{font-family:var(--font);font-size:14px;color:var(--text);letter-spacing:.5px;}
+.gc-desc{font-size:10px;color:var(--muted);margin-top:4px;line-height:1.4;}
+.gc-badge{position:absolute;top:8px;right:8px;font-size:9px;font-weight:700;padding:2px 6px;border-radius:999px;letter-spacing:1px;}
+.badge-hard{background:rgba(255,0,102,.2);color:var(--pink);}
+.badge-med{background:rgba(255,215,0,.15);color:var(--gold);}
+.drinks-counter{text-align:center;margin-top:20px;}
+.drinks-n{font-family:var(--font);font-size:48px;color:var(--pink);line-height:1;}
+.drinks-l{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);}
+
+/* ── SHARED GAME UI ── */
+.game-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg);}
+.back-btn{font-size:20px;cursor:pointer;padding:4px 8px;}
+.game-title{font-family:var(--font);font-size:16px;letter-spacing:1px;}
+.lives-mini{display:flex;gap:4px;}
+.lives-mini span{font-size:14px;}
+.game-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 16px;gap:16px;}
+
+/* ── STATUS BANNER ── */
+.status-banner{width:100%;padding:14px 20px;border-radius:14px;text-align:center;font-family:var(--font);font-size:18px;letter-spacing:1px;transition:all .3s;}
+.status-go{background:rgba(0,255,136,.1);border:2px solid var(--green);color:var(--green);box-shadow:0 0 20px rgba(0,255,136,.2);}
+.status-stop{background:rgba(255,26,26,.1);border:2px solid var(--red);color:var(--red);box-shadow:0 0 20px rgba(255,26,26,.3);animation:shake .3s ease;}
+.status-wait{background:rgba(255,215,0,.08);border:2px solid rgba(255,215,0,.3);color:var(--gold);}
+@keyframes shake{0%,100%{transform:translateX(0);}25%{transform:translateX(-8px);}75%{transform:translateX(8px);}};
+
+/* ── RED LIGHT GREEN LIGHT ── */
+.rlgl-doll{font-size:80px;text-align:center;transition:all .5s;cursor:default;user-select:none;}
+.rlgl-doll.watching{filter:drop-shadow(0 0 20px var(--red));animation:none;}
+.rlgl-doll.away{filter:drop-shadow(0 0 20px var(--green));}
+.progress-track{width:100%;background:var(--border);border-radius:999px;height:14px;overflow:hidden;position:relative;}
+.progress-fill{height:100%;border-radius:999px;transition:width .1s;background:linear-gradient(90deg,var(--green),#00ffcc);}
+.progress-label{font-size:12px;color:var(--muted);text-align:center;}
+.tap-zone{width:160px;height:160px;border-radius:50%;background:rgba(0,255,136,.08);border:3px solid var(--green);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .1s;user-select:none;-webkit-user-select:none;}
+.tap-zone:active{transform:scale(.92);background:rgba(0,255,136,.2);}
+.tap-zone.disabled{border-color:var(--red);background:rgba(255,26,26,.08);cursor:not-allowed;}
+.tap-zone span{font-family:var(--font);font-size:18px;letter-spacing:1px;}
+
+/* ── GLASS BRIDGE ── */
+.bridge-container{width:100%;max-width:340px;}
+.bridge-row{display:flex;gap:10px;justify-content:center;margin-bottom:10px;}
+.glass-panel{flex:1;height:70px;border-radius:12px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;font-size:28px;position:relative;overflow:hidden;background:rgba(100,200,255,.04);}
+.glass-panel::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.05),transparent);}
+.glass-panel:hover{border-color:rgba(100,200,255,.4);background:rgba(100,200,255,.08);}
+.glass-panel:active{transform:scale(.95);}
+.glass-panel.safe{background:rgba(0,255,136,.15);border-color:var(--green);animation:flash-safe .3s ease;}
+.glass-panel.danger{background:rgba(255,26,26,.15);border-color:var(--red);animation:crack .4s ease;}
+.glass-panel.revealed-safe{background:rgba(0,255,136,.08);border-color:rgba(0,255,136,.3);cursor:default;}
+.glass-panel.revealed-danger{background:rgba(255,26,26,.05);border-color:rgba(255,26,26,.2);cursor:default;opacity:.5;}
+@keyframes flash-safe{0%,100%{transform:scale(1);}50%{transform:scale(1.05);}}
+@keyframes crack{0%{transform:scale(1);}30%{transform:scale(.95) rotate(-2deg);}60%{transform:scale(1.02) rotate(1deg);}100%{transform:scale(1);}}
+.bridge-step{font-family:var(--font);font-size:13px;color:var(--muted);text-align:center;}
+.player-pos{font-size:28px;margin:8px 0;}
+
+/* ── TUG OF WAR ── */
+.tow-arena{width:100%;max-width:340px;}
+.rope-container{position:relative;height:60px;display:flex;align-items:center;}
+.rope{width:100%;height:6px;background:linear-gradient(90deg,#8B4513,#D2691E,#8B4513);border-radius:3px;position:relative;}
+.rope-knot{position:absolute;width:20px;height:20px;background:var(--gold);border-radius:50%;top:50%;transform:translate(-50%,-50%);transition:left .1s;border:2px solid #8B4513;}
+.rope-center{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:3px;height:30px;background:var(--red);border-radius:2px;}
+.tow-teams{display:flex;justify-content:space-between;width:100%;}
+.tow-team{text-align:center;flex:1;}
+.tow-emoji{font-size:40px;}
+.tow-label{font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
+.tow-power{font-family:var(--font);font-size:20px;color:var(--pink);}
+.tap-btn{width:100%;padding:20px;background:rgba(255,0,102,.1);border:2px solid var(--pink);border-radius:16px;font-family:var(--font);font-size:20px;color:var(--pink);cursor:pointer;letter-spacing:2px;transition:all .1s;user-select:none;-webkit-user-select:none;}
+.tap-btn:active{transform:scale(.96);background:rgba(255,0,102,.2);}
+.tow-bar-wrap{width:100%;background:var(--border);border-radius:999px;height:12px;overflow:hidden;}
+.tow-bar{height:100%;border-radius:999px;transition:width .15s;background:linear-gradient(90deg,var(--pink),#ff6699);}
+.tow-timer{font-family:var(--font);font-size:40px;color:var(--gold);text-align:center;}
+
+/* ── MARBLE GAME ── */
+.marble-container{width:100%;max-width:340px;display:flex;flex-direction:column;gap:16px;}
+.opponent-hand{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;text-align:center;}
+.opponent-label{font-size:11px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;}
+.fist{font-size:60px;transition:all .3s;}
+.marble-count{font-family:var(--font);font-size:14px;color:var(--pink);margin-top:4px;}
+.your-marbles{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:16px;}
+.marble{width:36px;height:36px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#e0e0e0,#888);border:2px solid #555;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#333;}
+.marble.selected{transform:translateY(-8px) scale(1.1);box-shadow:0 8px 20px rgba(255,215,0,.4);border-color:var(--gold);}
+.marble.lost{opacity:.2;transform:scale(.8);}
+.guess-btns{display:flex;gap:12px;}
+.guess-btn{flex:1;padding:16px;border-radius:14px;font-family:var(--font);font-size:16px;cursor:pointer;border:2px solid;transition:all .2s;letter-spacing:1px;}
+.odd-btn{background:rgba(255,0,102,.08);border-color:var(--pink);color:var(--pink);}
+.odd-btn:hover,.odd-btn.active{background:var(--pink);color:#fff;}
+.even-btn{background:rgba(0,255,136,.08);border-color:var(--green);color:var(--green);}
+.even-btn:hover,.even-btn.active{background:var(--green);color:#000;}
+.marble-score{display:flex;justify-content:space-between;background:var(--card);border-radius:12px;padding:14px 20px;border:1px solid var(--border);}
+.ms-item{text-align:center;}
+.ms-n{font-family:var(--font);font-size:24px;}
+.ms-l{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
+
+/* ── DRINK MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:1000;display:none;}
+.modal-overlay.show{display:flex;animation:fadeIn .2s ease;}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+.modal{background:var(--card);border:2px solid var(--pink);border-radius:20px;padding:32px 24px;text-align:center;max-width:300px;width:90%;}
+.modal-icon{font-size:64px;margin-bottom:12px;}
+.modal-title{font-family:var(--font);font-size:24px;color:var(--pink);margin-bottom:8px;letter-spacing:1px;}
+.modal-msg{font-size:14px;color:var(--muted);line-height:1.5;margin-bottom:20px;}
+.modal-btn{width:100%;padding:14px;background:var(--pink);border:none;border-radius:12px;font-family:var(--font);font-size:16px;color:#fff;cursor:pointer;letter-spacing:1px;}
+
+/* ── WIN MODAL ── */
+.win-modal{border-color:var(--green);}
+.win-modal .modal-title{color:var(--green);}
+.win-modal .modal-btn{background:var(--green);color:#000;}
+
+/* ── RESULT SCREEN ── */
+#result{align-items:center;justify-content:center;padding:32px 24px;text-align:center;background:radial-gradient(ellipse at 50% 30%,#1a0010,#0a0a0a);}
+.result-icon{font-size:80px;margin-bottom:16px;animation:pop .4s ease;}
+@keyframes pop{from{transform:scale(0);opacity:0;}to{transform:scale(1);opacity:1;}}
+.result-title{font-family:var(--font);font-size:36px;margin-bottom:8px;}
+.result-msg{font-size:14px;color:var(--muted);margin-bottom:32px;line-height:1.6;}
+.result-drinks{font-family:var(--font);font-size:64px;color:var(--pink);line-height:1;}
+.result-drinks-label{font-size:12px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:32px;}
+
+/* BUTTONS */
+.btn{display:flex;align-items:center;justify-content:center;padding:14px 24px;border-radius:12px;font-family:var(--font);font-size:15px;border:none;cursor:pointer;transition:all .2s;letter-spacing:.5px;width:100%;}
+.btn:active{transform:scale(.96);}
+.btn-pink{background:var(--pink);color:#fff;}
+.btn-outline{background:transparent;border:1.5px solid var(--border);color:var(--muted);}
+</style>
+</head>
+<body>
+
+<!-- MENU -->
+<div id="menu" class="screen active">
+  <div class="logo-wrap">
+    <div class="squid-logo">SQUID<br>GAME</div>
+    <div class="squid-sub">Party Edition 🦑</div>
+    <div class="shapes">
+      <div class="shape circle"></div>
+      <div class="shape tri"></div>
+      <div class="shape sq"></div>
+    </div>
+  </div>
+  <div class="lives-display" id="lives-display"></div>
+  <div class="games-grid">
+    <div class="game-card" onclick="startGame('rlgl')">
+      <div class="gc-badge badge-hard">HARD</div>
+      <div class="gc-icon">🚦</div>
+      <div class="gc-name">RED LIGHT GREEN LIGHT</div>
+      <div class="gc-desc">Tap to move. Freeze when red or DRINK!</div>
+    </div>
+    <div class="game-card" onclick="startGame('bridge')">
+      <div class="gc-badge badge-hard">HARD</div>
+      <div class="gc-icon">🌉</div>
+      <div class="gc-name">GLASS BRIDGE</div>
+      <div class="gc-desc">Pick the safe glass or fall… and DRINK!</div>
+    </div>
+    <div class="game-card" onclick="startGame('tow')">
+      <div class="gc-badge badge-med">MED</div>
+      <div class="gc-icon">💪</div>
+      <div class="gc-name">TUG OF WAR</div>
+      <div class="gc-desc">Tap fast to beat the machine. Lose = DRINK!</div>
+    </div>
+    <div class="game-card" onclick="startGame('marble')">
+      <div class="gc-badge badge-med">MED</div>
+      <div class="gc-icon">🔮</div>
+      <div class="gc-name">MARBLE GAME</div>
+      <div class="gc-desc">Guess odd or even. Wrong guess = DRINK!</div>
+    </div>
+  </div>
+  <div class="drinks-counter" style="margin-top:28px;">
+    <div class="drinks-n" id="total-drinks">0</div>
+    <div class="drinks-l">drinks taken today</div>
+  </div>
+</div>
+
+<!-- RED LIGHT GREEN LIGHT -->
+<div id="rlgl-screen" class="screen">
+  <div class="game-header">
+    <div class="back-btn" onclick="goMenu()">←</div>
+    <div class="game-title">🚦 RED LIGHT GREEN LIGHT</div>
+    <div class="lives-mini" id="rlgl-lives"></div>
+  </div>
+  <div class="game-body">
+    <div class="status-banner status-wait" id="rlgl-status">GET READY...</div>
+    <div class="rlgl-doll" id="rlgl-doll">🎎</div>
+    <div class="progress-track">
+      <div class="progress-fill" id="rlgl-progress" style="width:0%"></div>
+    </div>
+    <div class="progress-label" id="rlgl-prog-label">0% to finish line</div>
+    <div class="tap-zone" id="rlgl-tap" onclick="rlglTap()">
+      <span id="rlgl-tap-label">TAP TO MOVE</span>
+    </div>
+  </div>
+</div>
+
+<!-- GLASS BRIDGE -->
+<div id="bridge-screen" class="screen">
+  <div class="game-header">
+    <div class="back-btn" onclick="goMenu()">←</div>
+    <div class="game-title">🌉 GLASS BRIDGE</div>
+    <div class="lives-mini" id="bridge-lives"></div>
+  </div>
+  <div class="game-body">
+    <div class="status-banner status-wait" id="bridge-status">CHOOSE YOUR PATH</div>
+    <div class="bridge-step" id="bridge-step">Step 1 of 8</div>
+    <div class="player-pos" id="player-pos">🧍</div>
+    <div class="bridge-container" id="bridge-panels"></div>
+  </div>
+</div>
+
+<!-- TUG OF WAR -->
+<div id="tow-screen" class="screen">
+  <div class="game-header">
+    <div class="back-btn" onclick="goMenu()">←</div>
+    <div class="game-title">💪 TUG OF WAR</div>
+    <div class="lives-mini" id="tow-lives"></div>
+  </div>
+  <div class="game-body">
+    <div class="status-banner status-wait" id="tow-status">TAP AS FAST AS YOU CAN!</div>
+    <div class="tow-timer" id="tow-timer">10</div>
+    <div class="tow-arena">
+      <div class="tow-teams">
+        <div class="tow-team">
+          <div class="tow-emoji">👤</div>
+          <div class="tow-label">YOU</div>
+          <div class="tow-power" id="tow-player-power">0</div>
+        </div>
+        <div class="tow-team">
+          <div class="tow-emoji">🤖</div>
+          <div class="tow-label">MACHINE</div>
+          <div class="tow-power" id="tow-machine-power">0</div>
+        </div>
+      </div>
+      <div class="tow-bar-wrap" style="margin:12px 0;">
+        <div class="tow-bar" id="tow-bar" style="width:50%"></div>
+      </div>
+      <div class="rope-container">
+        <div class="rope">
+          <div class="rope-knot" id="rope-knot" style="left:50%"></div>
+          <div class="rope-center"></div>
+        </div>
+      </div>
+    </div>
+    <button class="tap-btn" id="tow-tap-btn" onclick="towTap()">⚡ TAP! ⚡</button>
+  </div>
+</div>
+
+<!-- MARBLE GAME -->
+<div id="marble-screen" class="screen">
+  <div class="game-header">
+    <div class="back-btn" onclick="goMenu()">←</div>
+    <div class="game-title">🔮 MARBLE GAME</div>
+    <div class="lives-mini" id="marble-lives"></div>
+  </div>
+  <div class="game-body">
+    <div class="status-banner status-wait" id="marble-status">GUESS ODD OR EVEN</div>
+    <div class="marble-container">
+      <div class="opponent-hand">
+        <div class="opponent-label">Opponent's Hand</div>
+        <div class="fist" id="opponent-fist">✊</div>
+        <div class="marble-count" id="opponent-marble-count">? marbles hidden</div>
+      </div>
+      <div class="marble-score">
+        <div class="ms-item"><div class="ms-n" id="ms-you" style="color:var(--green)">10</div><div class="ms-l">Your Marbles</div></div>
+        <div class="ms-item"><div class="ms-n" style="color:var(--muted)">VS</div></div>
+        <div class="ms-item"><div class="ms-n" id="ms-opp" style="color:var(--pink)">10</div><div class="ms-l">Opp Marbles</div></div>
+      </div>
+      <div class="your-marbles" id="your-marbles"></div>
+      <div style="font-size:12px;color:var(--muted);text-align:center;">Select marbles to bet, then guess odd or even</div>
+      <div class="guess-btns">
+        <button class="guess-btn odd-btn" onclick="marbleGuess('odd')">ODD</button>
+        <button class="guess-btn even-btn" onclick="marbleGuess('even')">EVEN</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DRINK MODAL -->
+<div class="modal-overlay" id="drink-modal">
+  <div class="modal">
+    <div class="modal-icon">🍺</div>
+    <div class="modal-title">DRINK!</div>
+    <div class="modal-msg" id="drink-msg">You moved during RED LIGHT!<br>Take a drink, player.</div>
+    <button class="modal-btn" id="drink-modal-btn" onclick="closeDrinkModal()">I DRANK 🍺</button>
+  </div>
+</div>
+
+<!-- WIN MODAL -->
+<div class="modal-overlay" id="win-modal">
+  <div class="modal win-modal">
+    <div class="modal-icon">🏆</div>
+    <div class="modal-title">YOU WIN!</div>
+    <div class="modal-msg" id="win-msg">You survived!</div>
+    <button class="modal-btn" onclick="closeWinModal()">CONTINUE →</button>
+  </div>
+</div>
+
+<script>
+// ── STATE ────────────────────────────────────────────────
+let lives = 3;
+let totalDrinks = 0;
+let currentGame = null;
+
+// ── NAVIGATION ───────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function goMenu() {
+  clearAllTimers();
+  showScreen('menu');
+  renderMenu();
+}
+
+function renderMenu() {
+  document.getElementById('total-drinks').textContent = totalDrinks;
+  const ld = document.getElementById('lives-display');
+  ld.innerHTML = Array.from({length:3},(_,i) => `<span class="life ${i >= lives ? 'lost' : ''}">❤️</span>`).join('');
+}
+
+function startGame(game) {
+  currentGame = game;
+  clearAllTimers();
+  if (game === 'rlgl') initRLGL();
+  else if (game === 'bridge') initBridge();
+  else if (game === 'tow') initTOW();
+  else if (game === 'marble') initMarble();
+}
+
+// ── TIMERS ───────────────────────────────────────────────
+let timers = [];
+function addTimer(fn, ms) { const t = setTimeout(fn, ms); timers.push(t); return t; }
+function addInterval(fn, ms) { const t = setInterval(fn, ms); timers.push(t); return t; }
+function clearAllTimers() { timers.forEach(t => { clearTimeout(t); clearInterval(t); }); timers = []; }
+
+// ── MODALS ───────────────────────────────────────────────
+let drinkCallback = null;
+function showDrink(msg, callback) {
+  totalDrinks++;
+  document.getElementById('drink-msg').innerHTML = msg;
+  document.getElementById('drink-modal').classList.add('show');
+  drinkCallback = callback;
+}
+function closeDrinkModal() {
+  document.getElementById('drink-modal').classList.remove('show');
+  if (drinkCallback) { drinkCallback(); drinkCallback = null; }
+}
+let winCallback = null;
+function showWin(msg, callback) {
+  document.getElementById('win-msg').textContent = msg;
+  document.getElementById('win-modal').classList.add('show');
+  winCallback = callback;
+}
+function closeWinModal() {
+  document.getElementById('win-modal').classList.remove('show');
+  if (winCallback) { winCallback(); winCallback = null; }
+  goMenu();
+}
+function renderLivesMini(id) {
+  document.getElementById(id).innerHTML = Array.from({length:3},(_,i)=>`<span>${i<lives?'❤️':'🖤'}</span>`).join('');
+}
+
+// ══════════════════════════════════════════════════════════
+// 1. RED LIGHT GREEN LIGHT
+// ══════════════════════════════════════════════════════════
+let rlglState = { phase:'wait', progress:0, isRed:false, moved:false };
+
+function initRLGL() {
+  rlglState = { phase:'countdown', progress:0, isRed:false, moved:false };
+  showScreen('rlgl-screen');
+  renderLivesMini('rlgl-lives');
+  document.getElementById('rlgl-progress').style.width = '0%';
+  document.getElementById('rlgl-prog-label').textContent = '0% to finish line';
+  document.getElementById('rlgl-tap').classList.remove('disabled');
+  document.getElementById('rlgl-tap-label').textContent = 'TAP TO MOVE';
+
+  let count = 3;
+  const status = document.getElementById('rlgl-status');
+  status.className = 'status-banner status-wait';
+  status.textContent = `Starting in ${count}...`;
+
+  const cd = addInterval(() => {
+    count--;
+    if (count > 0) { status.textContent = `Starting in ${count}...`; }
+    else {
+      clearInterval(cd);
+      rlglRound();
+    }
+  }, 1000);
+}
+
+function rlglRound() {
+  if (rlglState.progress >= 100) { showWin('You crossed the finish line! 🎉', null); return; }
+  rlglState.moved = false;
+
+  const greenTime = 1500 + Math.random() * 2500;
+  const status = document.getElementById('rlgl-status');
+  const doll = document.getElementById('rlgl-doll');
+
+  // GREEN PHASE
+  rlglState.isRed = false;
+  status.className = 'status-banner status-go';
+  status.textContent = '🟢 GREEN LIGHT — TAP!';
+  doll.className = 'rlgl-doll away';
+  document.getElementById('rlgl-tap').classList.remove('disabled');
+
+  addTimer(() => {
+    // RED PHASE
+    rlglState.isRed = true;
+    rlglState.moved = false;
+    status.className = 'status-banner status-stop';
+    status.textContent = '🔴 RED LIGHT — FREEZE!';
+    doll.className = 'rlgl-doll watching';
+    document.getElementById('rlgl-tap').classList.add('disabled');
+
+    const redTime = 1200 + Math.random() * 1500;
+    addTimer(() => {
+      if (rlglState.moved) {
+        showDrink('You moved during RED LIGHT! 🔴<br>The doll saw you. Take a drink!', () => {
+          if (rlglState.progress >= 100) { showWin('You crossed the finish line! 🎉', null); }
+          else { rlglRound(); }
+        });
+      } else {
+        rlglRound();
+      }
+    }, redTime);
+  }, greenTime);
+}
+
+function rlglTap() {
+  if (rlglState.phase === 'countdown') return;
+  if (rlglState.isRed) {
+    rlglState.moved = true;
+    document.getElementById('rlgl-status').textContent = '🔴 RED LIGHT — YOU MOVED!';
+    return;
+  }
+  rlglState.progress = Math.min(100, rlglState.progress + 8);
+  document.getElementById('rlgl-progress').style.width = rlglState.progress + '%';
+  document.getElementById('rlgl-prog-label').textContent = `${Math.round(rlglState.progress)}% to finish line`;
+  if (rlglState.progress >= 100) {
+    clearAllTimers();
+    showWin('You crossed the finish line! You survived! 🏁', null);
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// 2. GLASS BRIDGE
+// ══════════════════════════════════════════════════════════
+let bridgeState = { step:0, total:8, safe:[], done:false };
+
+function initBridge() {
+  bridgeState.step = 0;
+  bridgeState.total = 8;
+  bridgeState.done = false;
+  // Pre-generate which side is safe for each row
+  bridgeState.safe = Array.from({length:8}, () => Math.random() < .5 ? 'left' : 'right');
+  showScreen('bridge-screen');
+  renderLivesMini('bridge-lives');
+  document.getElementById('bridge-status').className = 'status-banner status-wait';
+  document.getElementById('bridge-status').textContent = 'CHOOSE YOUR PATH';
+  document.getElementById('bridge-step').textContent = `Step 1 of ${bridgeState.total}`;
+  document.getElementById('player-pos').textContent = '🧍';
+  renderBridgePanels();
+}
+
+function renderBridgePanels() {
+  const container = document.getElementById('bridge-panels');
+  const row = document.createElement('div');
+  row.className = 'bridge-row';
+  row.innerHTML = `
+    <div class="glass-panel" onclick="bridgeChoose('left')"><span>⬅️</span></div>
+    <div class="glass-panel" onclick="bridgeChoose('right')"><span>➡️</span></div>
+  `;
+  container.innerHTML = '';
+  container.appendChild(row);
+}
+
+function bridgeChoose(side) {
+  if (bridgeState.done) return;
+  const safe = bridgeState.safe[bridgeState.step];
+  const panels = document.querySelectorAll('.glass-panel');
+  const chosen = side === 'left' ? panels[0] : panels[1];
+  const other = side === 'left' ? panels[1] : panels[0];
+
+  if (side === safe) {
+    chosen.classList.add('safe');
+    bridgeState.step++;
+    document.getElementById('bridge-status').className = 'status-banner status-go';
+    document.getElementById('bridge-status').textContent = `✅ SAFE! Step ${bridgeState.step} cleared!`;
+
+    addTimer(() => {
+      if (bridgeState.step >= bridgeState.total) {
+        bridgeState.done = true;
+        document.getElementById('player-pos').textContent = '🏃';
+        showWin(`You crossed all ${bridgeState.total} panels! You survived! 🌉`, null);
+      } else {
+        document.getElementById('bridge-step').textContent = `Step ${bridgeState.step + 1} of ${bridgeState.total}`;
+        document.getElementById('bridge-status').className = 'status-banner status-wait';
+        document.getElementById('bridge-status').textContent = 'CHOOSE YOUR PATH';
+        document.getElementById('player-pos').textContent = ['🧍','🚶','🏃'][Math.min(2, Math.floor(bridgeState.step/3))];
+        renderBridgePanels();
+      }
+    }, 700);
+  } else {
+    chosen.classList.add('danger');
+    other.classList.add('revealed-safe');
+    bridgeState.done = true;
+    document.getElementById('bridge-status').className = 'status-banner status-stop';
+    document.getElementById('bridge-status').textContent = '💥 WRONG PANEL — YOU FELL!';
+    document.getElementById('player-pos').textContent = '😱';
+
+    addTimer(() => {
+      showDrink(`You chose the wrong glass and fell! 💥<br>Step ${bridgeState.step + 1} of ${bridgeState.total}.<br>Take a drink and try again!`, () => {
+        initBridge();
+      });
+    }, 800);
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// 3. TUG OF WAR
+// ══════════════════════════════════════════════════════════
+let towState = { playerPower:0, machinePower:0, timeLeft:10, running:false, interval:null, machineInterval:null };
+
+function initTOW() {
+  towState = { playerPower:0, machinePower:0, timeLeft:10, running:false };
+  showScreen('tow-screen');
+  renderLivesMini('tow-lives');
+  document.getElementById('tow-timer').textContent = '10';
+  document.getElementById('tow-player-power').textContent = '0';
+  document.getElementById('tow-machine-power').textContent = '0';
+  document.getElementById('tow-bar').style.width = '50%';
+  document.getElementById('rope-knot').style.left = '50%';
+  document.getElementById('tow-status').className = 'status-banner status-wait';
+  document.getElementById('tow-status').textContent = 'TAP AS FAST AS YOU CAN!';
+  document.getElementById('tow-tap-btn').disabled = false;
+
+  let count = 3;
+  const status = document.getElementById('tow-status');
+  status.textContent = `Starting in ${count}...`;
+  const cd = addInterval(() => {
+    count--;
+    if (count > 0) status.textContent = `Starting in ${count}...`;
+    else {
+      clearInterval(cd);
+      towState.running = true;
+      status.className = 'status-banner status-go';
+      status.textContent = '⚡ TAP! TAP! TAP!';
+
+      // Machine auto-taps
+      const machineSpeed = 180 + Math.random() * 80;
+      const mi = addInterval(() => {
+        if (!towState.running) return;
+        towState.machinePower += 1 + Math.random();
+        updateTowUI();
+      }, machineSpeed);
+
+      // Countdown
+      const ti = addInterval(() => {
+        towState.timeLeft--;
+        document.getElementById('tow-timer').textContent = towState.timeLeft;
+        if (towState.timeLeft <= 0) {
+          clearInterval(ti); clearInterval(mi);
+          towState.running = false;
+          endTOW();
+        }
+      }, 1000);
+    }
+  }, 1000);
+}
+
+function towTap() {
+  if (!towState.running) return;
+  towState.playerPower += 1;
+  updateTowUI();
+}
+
+function updateTowUI() {
+  const total = towState.playerPower + towState.machinePower;
+  const pct = total > 0 ? (towState.playerPower / total) * 100 : 50;
+  document.getElementById('tow-bar').style.width = pct + '%';
+  document.getElementById('rope-knot').style.left = pct + '%';
+  document.getElementById('tow-player-power').textContent = Math.floor(towState.playerPower);
+  document.getElementById('tow-machine-power').textContent = Math.floor(towState.machinePower);
+}
+
+function endTOW() {
+  const status = document.getElementById('tow-status');
+  document.getElementById('tow-tap-btn').disabled = true;
+  if (towState.playerPower >= towState.machinePower) {
+    status.className = 'status-banner status-go';
+    status.textContent = '🏆 YOU WIN!';
+    addTimer(() => showWin(`You out-tapped the machine! ${Math.floor(towState.playerPower)} vs ${Math.floor(towState.machinePower)} taps! 💪`, null), 800);
+  } else {
+    status.className = 'status-banner status-stop';
+    status.textContent = '💀 YOU LOST!';
+    addTimer(() => {
+      showDrink(`The machine beat you! ${Math.floor(towState.playerPower)} vs ${Math.floor(towState.machinePower)} taps.<br>Take a drink, soldier! 💪`, () => {
+        initTOW();
+      });
+    }, 800);
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// 4. MARBLE GAME
+// ══════════════════════════════════════════════════════════
+let marbleState = { yourMarbles:10, oppMarbles:10, bet:0, selectedMarbles:[], round:0 };
+
+function initMarble() {
+  marbleState = { yourMarbles:10, oppMarbles:10, bet:0, selectedMarbles:[], round:0 };
+  showScreen('marble-screen');
+  renderLivesMini('marble-lives');
+  renderMarbles();
+  updateMarbleScore();
+  document.getElementById('marble-status').className = 'status-banner status-wait';
+  document.getElementById('marble-status').textContent = 'SELECT MARBLES TO BET';
+  document.getElementById('opponent-fist').textContent = '✊';
+  document.getElementById('opponent-marble-count').textContent = '? marbles hidden';
+}
+
+function renderMarbles() {
+  const container = document.getElementById('your-marbles');
+  container.innerHTML = '';
+  for (let i = 0; i < marbleState.yourMarbles; i++) {
+    const m = document.createElement('div');
+    m.className = 'marble';
+    m.textContent = i + 1;
+    m.onclick = () => toggleMarble(i, m);
+    container.appendChild(m);
+  }
+  marbleState.selectedMarbles = [];
+}
+
+function toggleMarble(i, el) {
+  const idx = marbleState.selectedMarbles.indexOf(i);
+  if (idx === -1) {
+    marbleState.selectedMarbles.push(i);
+    el.classList.add('selected');
+  } else {
+    marbleState.selectedMarbles.splice(idx, 1);
+    el.classList.remove('selected');
+  }
+  const bet = marbleState.selectedMarbles.length;
+  document.getElementById('marble-status').textContent = bet > 0 ? `Betting ${bet} marble${bet>1?'s':''} — Guess ODD or EVEN` : 'SELECT MARBLES TO BET';
+}
+
+function marbleGuess(guess) {
+  const bet = marbleState.selectedMarbles.length;
+  if (bet === 0) { document.getElementById('marble-status').textContent = '⚠️ Select marbles first!'; return; }
+
+  // Opponent hides random amount
+  const oppHidden = Math.floor(Math.random() * Math.min(marbleState.oppMarbles, 5)) + 1;
+  const isOdd = oppHidden % 2 === 1;
+  const correct = (guess === 'odd' && isOdd) || (guess === 'even' && !isOdd);
+
+  document.getElementById('opponent-fist').textContent = '🤚';
+  document.getElementById('opponent-marble-count').textContent = `${oppHidden} marble${oppHidden>1?'s':''}`;
+
+  if (correct) {
+    marbleState.yourMarbles += bet;
+    marbleState.oppMarbles -= bet;
+    document.getElementById('marble-status').className = 'status-banner status-go';
+    document.getElementById('marble-status').textContent = `✅ CORRECT! ${oppHidden} is ${isOdd?'ODD':'EVEN'}! +${bet} marbles!`;
+
+    addTimer(() => {
+      if (marbleState.oppMarbles <= 0) {
+        showWin(`You took all the opponent's marbles! 🏆 You have ${marbleState.yourMarbles} marbles!`, null);
+      } else {
+        renderMarbles();
+        updateMarbleScore();
+        document.getElementById('opponent-fist').textContent = '✊';
+        document.getElementById('opponent-marble-count').textContent = '? marbles hidden';
+        document.getElementById('marble-status').className = 'status-banner status-wait';
+        document.getElementById('marble-status').textContent = 'SELECT MARBLES TO BET';
+      }
+    }, 1500);
+  } else {
+    marbleState.yourMarbles -= bet;
+    marbleState.oppMarbles += bet;
+    document.getElementById('marble-status').className = 'status-banner status-stop';
+    document.getElementById('marble-status').textContent = `❌ WRONG! ${oppHidden} is ${isOdd?'ODD':'EVEN'}! -${bet} marbles!`;
+
+    addTimer(() => {
+      if (marbleState.yourMarbles <= 0) {
+        showDrink(`You lost all your marbles! 💀<br>The opponent won. Take ${Math.min(3, bet)} drinks!`, () => {
+          totalDrinks += Math.min(3, bet) - 1;
+          initMarble();
+        });
+      } else {
+        renderMarbles();
+        updateMarbleScore();
+        document.getElementById('opponent-fist').textContent = '✊';
+        document.getElementById('opponent-marble-count').textContent = '? marbles hidden';
+        document.getElementById('marble-status').className = 'status-wait';
+        document.getElementById('marble-status').textContent = 'SELECT MARBLES TO BET';
+        showDrink(`Wrong guess! ${oppHidden} was ${isOdd?'ODD':'EVEN'}.<br>You lost ${bet} marble${bet>1?'s':''}. Take a drink!`, () => {});
+      }
+    }, 1500);
+  }
+}
+
+function updateMarbleScore() {
+  document.getElementById('ms-you').textContent = marbleState.yourMarbles;
+  document.getElementById('ms-opp').textContent = marbleState.oppMarbles;
+}
+
+// Init
+renderMenu();
+</script>
+</body>
+</html>
