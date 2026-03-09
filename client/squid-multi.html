@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🦑 Squid Game Multiplayer</title>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
+<script src="/socket.io/socket.io.js"></script>
+<style>
+:root{--bg:#0a0a0a;--pink:#ff0066;--green:#00ff88;--red:#ff1a1a;--gold:#ffd700;--card:#141414;--border:#222;--text:#f5f5f5;--muted:#555;--font:'Black Han Sans',sans-serif;--body:'Noto Sans KR',sans-serif;}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--body);overflow:hidden;}
+body{display:flex;flex-direction:column;}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.03) 2px,rgba(0,0,0,.03) 4px);pointer-events:none;z-index:9999;}
+
+.screen{display:none;flex-direction:column;height:100%;overflow-y:auto;}
+.screen.active{display:flex;}
+
+/* LANDING */
+#landing{align-items:center;justify-content:center;padding:32px 24px;gap:0;background:radial-gradient(ellipse at 50% 0%,#1a0010,#0a0a0a 70%);}
+.squid-logo{font-family:var(--font);font-size:52px;color:var(--pink);text-shadow:0 0 40px rgba(255,0,102,.5);text-align:center;line-height:1;}
+.squid-sub{font-size:10px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);text-align:center;margin:8px 0 8px;}
+.shapes{display:flex;gap:16px;justify-content:center;margin:12px 0 32px;}
+.shape{width:28px;height:28px;border:2px solid rgba(255,0,102,.5);}
+.shape.circle{border-radius:50%;}
+.shape.sq{border-radius:2px;}
+.shape.tri{border:none;width:0;height:0;border-left:14px solid transparent;border-right:14px solid transparent;border-bottom:25px solid rgba(255,0,102,.5);}
+.landing-btns{display:flex;flex-direction:column;gap:10px;width:100%;max-width:320px;}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:15px 20px;border-radius:14px;font-family:var(--font);font-size:15px;border:none;cursor:pointer;transition:all .2s;letter-spacing:.5px;width:100%;}
+.btn:active{transform:scale(.96);}
+.btn-pink{background:var(--pink);color:#fff;}
+.btn-outline{background:var(--card);color:var(--text);border:1px solid var(--border);}
+.btn-ghost{background:transparent;color:var(--muted);font-size:13px;}
+.btn-green{background:var(--green);color:#000;}
+
+/* FORMS */
+.form-screen{align-items:center;justify-content:center;padding:32px 24px;background:radial-gradient(ellipse at 50% 0%,#1a0010,#0a0a0a 70%);}
+.form-box{width:100%;max-width:320px;display:flex;flex-direction:column;gap:14px;}
+.form-box h2{font-family:var(--font);font-size:24px;color:var(--pink);}
+.input{width:100%;padding:14px 16px;background:var(--card);border:1.5px solid var(--border);border-radius:12px;color:var(--text);font-family:var(--body);font-size:16px;outline:none;transition:border-color .2s;}
+.input:focus{border-color:var(--pink);}
+.input::placeholder{color:var(--muted);}
+.label{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
+.error-msg{color:var(--red);font-size:13px;min-height:18px;text-align:center;}
+
+/* LOBBY */
+#lobby{padding:0;}
+.lobby-header{padding:20px;background:linear-gradient(180deg,#1a0010,transparent);border-bottom:1px solid var(--border);}
+.code-badge{font-family:var(--font);font-size:36px;color:var(--gold);letter-spacing:4px;}
+.code-hint{font-size:11px;color:var(--muted);margin-top:4px;}
+.players-section{padding:16px 20px;}
+.section-title{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:12px;}
+.players-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.player-chip{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 6px;text-align:center;}
+.player-chip .pc-emoji{font-size:20px;}
+.player-chip .pc-name{font-size:10px;font-weight:700;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.player-chip.host{border-color:var(--gold);}
+.lobby-footer{padding:16px 20px 32px;}
+.waiting-msg{text-align:center;font-size:12px;color:var(--muted);margin-bottom:12px;}
+
+/* GAME SELECTION (host picks game) */
+#game-select{padding:20px;}
+#game-select h2{font-family:var(--font);font-size:20px;color:var(--pink);margin-bottom:4px;}
+#game-select p{font-size:12px;color:var(--muted);margin-bottom:20px;}
+.game-pick-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.game-pick-card{background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:18px 12px;text-align:center;cursor:pointer;transition:all .2s;}
+.game-pick-card:hover,.game-pick-card:active{border-color:var(--pink);background:rgba(255,0,102,.06);}
+.gpc-icon{font-size:32px;margin-bottom:6px;}
+.gpc-name{font-family:var(--font);font-size:12px;letter-spacing:.5px;}
+.gpc-players{font-size:10px;color:var(--muted);margin-top:2px;}
+
+/* GAME SCREEN */
+#game{padding:0;}
+.game-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg);position:sticky;top:0;z-index:10;}
+.game-tag{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:4px 10px;border-radius:999px;background:rgba(255,0,102,.15);color:var(--pink);}
+.player-scores-bar{display:flex;gap:6px;overflow-x:auto;padding:0 2px;}
+.score-chip{display:flex;align-items:center;gap:4px;font-size:10px;white-space:nowrap;background:var(--card);padding:3px 7px;border-radius:999px;}
+.game-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 16px;gap:16px;}
+.status-banner{width:100%;padding:14px 20px;border-radius:14px;text-align:center;font-family:var(--font);font-size:18px;letter-spacing:1px;transition:all .3s;}
+.status-go{background:rgba(0,255,136,.1);border:2px solid var(--green);color:var(--green);}
+.status-stop{background:rgba(255,26,26,.1);border:2px solid var(--red);color:var(--red);animation:shake .3s ease;}
+.status-wait{background:rgba(255,215,0,.08);border:2px solid rgba(255,215,0,.3);color:var(--gold);}
+@keyframes shake{0%,100%{transform:translateX(0);}25%{transform:translateX(-6px);}75%{transform:translateX(6px);}}
+
+/* RLGL */
+.rlgl-doll{font-size:70px;text-align:center;}
+.progress-track{width:100%;background:var(--border);border-radius:999px;height:12px;overflow:hidden;}
+.progress-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--green),#00ffcc);transition:width .1s;}
+.tap-zone{width:150px;height:150px;border-radius:50%;background:rgba(0,255,136,.08);border:3px solid var(--green);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .1s;user-select:none;}
+.tap-zone:active{transform:scale(.92);background:rgba(0,255,136,.2);}
+.tap-zone.red-zone{border-color:var(--red);background:rgba(255,26,26,.08);}
+.tap-zone span{font-family:var(--font);font-size:16px;}
+.players-progress{width:100%;display:flex;flex-direction:column;gap:6px;}
+.prog-row{display:flex;align-items:center;gap:8px;font-size:12px;}
+.prog-name{width:70px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted);}
+.prog-bar-wrap{flex:1;background:var(--border);border-radius:999px;height:6px;overflow:hidden;}
+.prog-bar{height:100%;border-radius:999px;}
+.prog-pct{width:32px;text-align:right;font-size:10px;color:var(--muted);}
+
+/* BRIDGE */
+.bridge-row{display:flex;gap:10px;justify-content:center;margin-bottom:10px;}
+.glass-panel{flex:1;height:64px;border-radius:12px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;font-size:24px;background:rgba(100,200,255,.04);}
+.glass-panel:hover,.glass-panel:active{border-color:rgba(100,200,255,.5);background:rgba(100,200,255,.1);}
+.glass-panel.safe{background:rgba(0,255,136,.15);border-color:var(--green);}
+.glass-panel.danger{background:rgba(255,26,26,.15);border-color:var(--red);}
+.glass-panel.disabled{cursor:default;opacity:.5;}
+
+/* TOW */
+.tow-bar-wrap{width:100%;background:var(--border);border-radius:999px;height:14px;overflow:hidden;}
+.tow-bar{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--pink),#ff6699);transition:width .15s;}
+.rope-container{position:relative;height:50px;display:flex;align-items:center;width:100%;}
+.rope{width:100%;height:5px;background:linear-gradient(90deg,#8B4513,#D2691E,#8B4513);border-radius:3px;}
+.rope-knot{position:absolute;width:18px;height:18px;background:var(--gold);border-radius:50%;top:50%;transform:translate(-50%,-50%);transition:left .1s;}
+.rope-center{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:2px;height:26px;background:var(--red);}
+.tap-btn{width:100%;padding:18px;background:rgba(255,0,102,.1);border:2px solid var(--pink);border-radius:14px;font-family:var(--font);font-size:18px;color:var(--pink);cursor:pointer;letter-spacing:2px;user-select:none;}
+.tap-btn:active{transform:scale(.96);background:rgba(255,0,102,.2);}
+.tow-scores{display:flex;justify-content:space-between;width:100%;}
+.tow-score-item{text-align:center;}
+.tow-score-n{font-family:var(--font);font-size:22px;color:var(--pink);}
+.tow-score-l{font-size:10px;color:var(--muted);letter-spacing:1px;}
+
+/* MARBLE */
+.marble-hand{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;text-align:center;}
+.fist{font-size:52px;}
+.marble-bet-area{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+.marble{width:34px;height:34px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#e0e0e0,#888);border:2px solid #555;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#333;}
+.marble.selected{transform:translateY(-6px) scale(1.1);border-color:var(--gold);box-shadow:0 6px 16px rgba(255,215,0,.4);}
+.guess-btns{display:flex;gap:10px;width:100%;}
+.guess-btn{flex:1;padding:14px;border-radius:12px;font-family:var(--font);font-size:15px;cursor:pointer;border:2px solid;transition:all .2s;}
+.odd-btn{background:rgba(255,0,102,.08);border-color:var(--pink);color:var(--pink);}
+.odd-btn.active{background:var(--pink);color:#fff;}
+.even-btn{background:rgba(0,255,136,.08);border-color:var(--green);color:var(--green);}
+.even-btn.active{background:var(--green);color:#000;}
+.marble-scores{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+.marble-score-chip{background:var(--card);border:1px solid var(--border);padding:8px 12px;border-radius:10px;text-align:center;}
+.msc-n{font-family:var(--font);font-size:18px;color:var(--pink);}
+.msc-l{font-size:9px;color:var(--muted);}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:1000;}
+.modal-overlay.show{display:flex;animation:fadeIn .2s;}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+.modal{background:var(--card);border:2px solid var(--pink);border-radius:18px;padding:28px 20px;text-align:center;max-width:290px;width:90%;}
+.modal.win{border-color:var(--green);}
+.modal-icon{font-size:56px;margin-bottom:10px;}
+.modal-title{font-family:var(--font);font-size:22px;color:var(--pink);margin-bottom:6px;}
+.modal.win .modal-title{color:var(--green);}
+.modal-msg{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:16px;}
+.modal-btn{width:100%;padding:13px;border:none;border-radius:10px;font-family:var(--font);font-size:15px;color:#fff;cursor:pointer;background:var(--pink);}
+.modal.win .modal-btn{background:var(--green);color:#000;}
+
+/* LEADERBOARD */
+.leaderboard{width:100%;background:var(--card);border-radius:14px;border:1px solid var(--border);}
+.lb-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);}
+.lb-row:last-child{border:none;}
+.lb-rank{font-family:var(--font);font-size:16px;width:24px;color:var(--muted);}
+.lb-row.top .lb-rank{color:var(--gold);}
+.lb-name{flex:1;font-size:14px;font-weight:700;}
+.lb-score{font-family:var(--font);font-size:18px;color:var(--pink);}
+.lb-status{font-size:10px;padding:2px 8px;border-radius:999px;}
+.status-alive{background:rgba(0,255,136,.15);color:var(--green);}
+.status-dead{background:rgba(255,26,26,.1);color:var(--red);}
+
+.host-bar{padding:12px 16px;border-top:1px solid var(--border);background:var(--bg);flex-shrink:0;}
+.timer-display{font-family:var(--font);font-size:48px;color:var(--gold);text-align:center;}
+.prog-label{font-size:11px;color:var(--muted);text-align:center;}
+</style>
+</head>
+<body>
+
+<!-- LANDING -->
+<div id="landing" class="screen active">
+  <div class="squid-logo">SQUID<br>GAME</div>
+  <div class="squid-sub">Multiplayer Edition 🦑</div>
+  <div class="shapes"><div class="shape circle"></div><div class="shape tri"></div><div class="shape sq"></div></div>
+  <div class="landing-btns">
+    <button class="btn btn-pink" onclick="show('create-screen')">🎮 Host a Game</button>
+    <button class="btn btn-outline" onclick="show('join-screen')">📱 Join a Room</button>
+    <a href="/" class="btn btn-ghost" style="text-align:center;">← Back to Party Zone</a>
+  </div>
+</div>
+
+<!-- CREATE -->
+<div id="create-screen" class="screen form-screen">
+  <div class="form-box">
+    <h2>Host 🦑</h2>
+    <div class="label">Your Name</div>
+    <input class="input" id="host-name" placeholder="Your player name" maxlength="14">
+    <div class="error-msg" id="create-err"></div>
+    <button class="btn btn-pink" onclick="createRoom()">Create Room →</button>
+    <button class="btn btn-ghost" onclick="show('landing')">← Back</button>
+  </div>
+</div>
+
+<!-- JOIN -->
+<div id="join-screen" class="screen form-screen">
+  <div class="form-box">
+    <h2>Join 🦑</h2>
+    <div class="label">Your Name</div>
+    <input class="input" id="join-name" placeholder="Your player name" maxlength="14">
+    <div class="label">Room Code</div>
+    <input class="input" id="join-code" placeholder="XXXX" maxlength="4" style="text-transform:uppercase;letter-spacing:4px;font-family:var(--mono);font-size:22px;">
+    <div class="error-msg" id="join-err"></div>
+    <button class="btn btn-green" onclick="joinRoom()">Join →</button>
+    <button class="btn btn-ghost" onclick="show('landing')">← Back</button>
+  </div>
+</div>
+
+<!-- LOBBY -->
+<div id="lobby" class="screen">
+  <div class="lobby-header">
+    <div style="font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;">ROOM CODE</div>
+    <div class="code-badge" id="lobby-code">----</div>
+    <div class="code-hint">Share this code — everyone joins from their phone</div>
+  </div>
+  <div class="players-section">
+    <div class="section-title">Players (<span id="player-count">0</span>/12)</div>
+    <div class="players-grid" id="players-grid"></div>
+  </div>
+  <div class="lobby-footer">
+    <div class="waiting-msg" id="waiting-msg">Waiting...</div>
+    <button class="btn btn-pink" id="start-btn" onclick="hostPickGame()" style="display:none;">Pick a Game →</button>
+  </div>
+</div>
+
+<!-- GAME SELECT (host only) -->
+<div id="game-select" class="screen">
+  <h2>Pick a Game</h2>
+  <p>Choose which Squid Game to play</p>
+  <div class="game-pick-grid">
+    <div class="game-pick-card" onclick="hostStartGame('rlgl')">
+      <div class="gpc-icon">🚦</div>
+      <div class="gpc-name">RED LIGHT GREEN LIGHT</div>
+      <div class="gpc-players">All players race</div>
+    </div>
+    <div class="game-pick-card" onclick="hostStartGame('bridge')">
+      <div class="gpc-icon">🌉</div>
+      <div class="gpc-name">GLASS BRIDGE</div>
+      <div class="gpc-players">Survive 8 steps</div>
+    </div>
+    <div class="game-pick-card" onclick="hostStartGame('tow')">
+      <div class="gpc-icon">💪</div>
+      <div class="gpc-name">TUG OF WAR</div>
+      <div class="gpc-players">Team tap battle</div>
+    </div>
+    <div class="game-pick-card" onclick="hostStartGame('marble')">
+      <div class="gpc-icon">🔮</div>
+      <div class="gpc-name">MARBLE GAME</div>
+      <div class="gpc-players">Guess odd or even</div>
+    </div>
+  </div>
+  <div style="margin-top:16px;"><button class="btn btn-ghost" onclick="show('lobby')">← Back to Lobby</button></div>
+</div>
+
+<!-- GAME SCREEN -->
+<div id="game" class="screen">
+  <div class="game-header">
+    <div class="game-tag" id="game-tag">GAME</div>
+    <div class="player-scores-bar" id="player-scores-bar"></div>
+  </div>
+  <div class="game-body" id="game-body"></div>
+  <div class="host-bar" id="host-bar" style="display:none;">
+    <button class="btn btn-outline" style="padding:12px;" onclick="hostPickGame()">← Pick New Game</button>
+  </div>
+</div>
+
+<!-- DRINK MODAL -->
+<div class="modal-overlay" id="drink-modal">
+  <div class="modal">
+    <div class="modal-icon">🍺</div>
+    <div class="modal-title">DRINK!</div>
+    <div class="modal-msg" id="drink-msg">Take a drink!</div>
+    <button class="modal-btn" onclick="closeModal('drink-modal')">I DRANK 🍺</button>
+  </div>
+</div>
+
+<!-- WIN MODAL -->
+<div class="modal-overlay" id="win-modal">
+  <div class="modal win">
+    <div class="modal-icon">🏆</div>
+    <div class="modal-title">YOU WIN!</div>
+    <div class="modal-msg" id="win-msg">You survived!</div>
+    <button class="modal-btn" onclick="closeModal('win-modal')">🎉 Nice!</button>
+  </div>
+</div>
+
+<script>
+const socket = io();
+let myId=null, myRoom=null, isHost=false, currentRoom=null;
+let gameState={};
+let timers=[];
+
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');}
+function addT(fn,ms){const t=setTimeout(fn,ms);timers.push(t);return t;}
+function addI(fn,ms){const t=setInterval(fn,ms);timers.push(t);return t;}
+function clearT(){timers.forEach(t=>{clearTimeout(t);clearInterval(t);});timers=[];}
+function closeModal(id){document.getElementById(id).classList.remove('show');}
+function showDrink(msg){document.getElementById('drink-msg').innerHTML=msg;document.getElementById('drink-modal').classList.add('show');}
+function showWin(msg){document.getElementById('win-msg').textContent=msg;document.getElementById('win-modal').classList.add('show');}
+
+// ── SOCKET ─────────────────────────────────────────
+function createRoom(){
+  const name=document.getElementById('host-name').value.trim();
+  if(!name){document.getElementById('create-err').textContent='Enter your name';return;}
+  socket.emit('sq_create',{name});
+}
+function joinRoom(){
+  const name=document.getElementById('join-name').value.trim();
+  const code=document.getElementById('join-code').value.trim().toUpperCase();
+  if(!name){document.getElementById('join-err').textContent='Enter your name';return;}
+  if(code.length!==4){document.getElementById('join-err').textContent='Enter 4-letter code';return;}
+  socket.emit('sq_join',{name,code});
+}
+
+socket.on('sq_joined',({code,playerId})=>{
+  myId=playerId; myRoom=code;
+  document.getElementById('lobby-code').textContent=code;
+  show('lobby');
+});
+socket.on('sq_error',msg=>{
+  document.getElementById('join-err').textContent=msg;
+  document.getElementById('create-err').textContent=msg;
+});
+socket.on('sq_room',room=>{
+  currentRoom=room;
+  isHost=room.host===myId;
+  if(room.state==='lobby'){renderLobby(room);show('lobby');}
+  else if(room.state==='playing'){show('game');renderGame(room);}
+});
+
+// Squid game events from server
+socket.on('sq_phase',data=>{handlePhase(data);});
+socket.on('sq_progress',data=>{updateProgress(data);});
+socket.on('sq_result',data=>{handleResult(data);});
+
+function renderLobby(room){
+  document.getElementById('player-count').textContent=room.players.length;
+  document.getElementById('players-grid').innerHTML=room.players.map(p=>`
+    <div class="player-chip ${p.isHost?'host':''}">
+      <div class="pc-emoji">${p.emoji}</div>
+      <div class="pc-name">${p.name}${p.isHost?' 👑':''}</div>
+    </div>`).join('');
+  const sb=document.getElementById('start-btn');
+  const wm=document.getElementById('waiting-msg');
+  if(isHost){
+    sb.style.display=room.players.length>=2?'block':'none';
+    wm.textContent=room.players.length<2?'Need at least 2 players...':'Ready! Pick a game when everyone joins.';
+  } else {
+    sb.style.display='none';
+    wm.textContent=`Waiting for host to start...`;
+  }
+}
+
+function hostPickGame(){if(isHost)show('game-select');}
+function hostStartGame(game){
+  socket.emit('sq_start_game',{game});
+  show('game');
+}
+
+function renderGame(room){
+  clearT();
+  const game=room.currentGame;
+  const tags={rlgl:'RED LIGHT GREEN LIGHT',bridge:'GLASS BRIDGE',tow:'TUG OF WAR',marble:'MARBLE GAME'};
+  document.getElementById('game-tag').textContent=tags[game]||game;
+  document.getElementById('host-bar').style.display=isHost?'flex':'none';
+
+  const sorted=[...room.players].sort((a,b)=>b.score-a.score);
+  document.getElementById('player-scores-bar').innerHTML=sorted.map(p=>
+    `<div class="score-chip">${p.emoji} ${p.name} <strong>${p.score}</strong></div>`).join('');
+
+  const body=document.getElementById('game-body');
+  if(game==='rlgl') renderRLGL(body,room);
+  else if(game==='bridge') renderBridge(body,room);
+  else if(game==='tow') renderTOW(body,room);
+  else if(game==='marble') renderMarble(body,room);
+}
+
+// ── RLGL ─────────────────────────────────────────────
+function renderRLGL(body,room){
+  const me=room.players.find(p=>p.id===myId);
+  const prog=room.progress||{};
+  body.innerHTML=`
+    <div class="status-banner status-wait" id="rlgl-status">GET READY...</div>
+    <div style="font-size:70px;text-align:center;" id="rlgl-doll">🎎</div>
+    <div class="players-progress" id="players-progress">
+      ${room.players.map(p=>`
+        <div class="prog-row">
+          <div class="prog-name">${p.emoji} ${p.name}</div>
+          <div class="prog-bar-wrap"><div class="prog-bar" id="pb-${p.id}" style="width:${prog[p.id]||0}%;background:${p.id===myId?'var(--green)':'var(--muted)'}"></div></div>
+          <div class="prog-pct" id="pp-${p.id}">${Math.round(prog[p.id]||0)}%</div>
+        </div>`).join('')}
+    </div>
+    <div class="tap-zone" id="rlgl-tap" onclick="rlglTap()"><span id="rlgl-tap-lbl">TAP TO MOVE</span></div>
+  `;
+}
+
+let rlglIsRed=false, rlglMoved=false;
+function rlglTap(){
+  if(rlglIsRed){rlglMoved=true;return;}
+  socket.emit('sq_tap',{game:'rlgl'});
+}
+
+socket.on('sq_rlgl_phase',({phase})=>{
+  rlglIsRed=phase==='red';
+  rlglMoved=false;
+  const status=document.getElementById('rlgl-status');
+  const doll=document.getElementById('rlgl-doll');
+  const tap=document.getElementById('rlgl-tap');
+  if(!status)return;
+  if(phase==='green'){
+    status.className='status-banner status-go';
+    status.textContent='🟢 GREEN LIGHT — TAP!';
+    doll&&(doll.style.filter='drop-shadow(0 0 16px var(--green))');
+    tap&&tap.classList.remove('red-zone');
+  } else {
+    status.className='status-banner status-stop';
+    status.textContent='🔴 RED LIGHT — FREEZE!';
+    doll&&(doll.style.filter='drop-shadow(0 0 16px var(--red))');
+    tap&&tap.classList.add('red-zone');
+  }
+});
+
+socket.on('sq_rlgl_progress',({progress,caught})=>{
+  Object.entries(progress).forEach(([id,pct])=>{
+    const bar=document.getElementById(`pb-${id}`);
+    const lbl=document.getElementById(`pp-${id}`);
+    if(bar)bar.style.width=pct+'%';
+    if(lbl)lbl.textContent=Math.round(pct)+'%';
+  });
+  if(caught&&caught.includes(myId)){
+    showDrink('You moved during RED LIGHT! 🔴<br>Take a drink!');
+  }
+});
+
+// ── BRIDGE ───────────────────────────────────────────
+let bridgeStep=0, bridgeTotal=8, bridgeDone=false;
+
+function renderBridge(body,room){
+  bridgeStep=room.bridgeStep||0;
+  bridgeTotal=8;
+  bridgeDone=false;
+  body.innerHTML=`
+    <div class="status-banner status-wait" id="bridge-status">STEP ${bridgeStep+1} OF ${bridgeTotal}</div>
+    <div style="font-size:24px;text-align:center;" id="bridge-player">🧍 Step ${bridgeStep}</div>
+    <div style="width:100%;" id="bridge-panels"></div>
+    <div class="leaderboard" id="bridge-lb">
+      ${room.players.map((p,i)=>`
+        <div class="lb-row ${i===0?'top':''}">
+          <div class="lb-rank">${i+1}</div>
+          <div class="lb-name">${p.emoji} ${p.name}</div>
+          <div class="lb-status ${(room.bridgeSurvivors||[]).includes(p.id)?'status-alive':'status-dead'}">${(room.bridgeSurvivors||[]).includes(p.id)?'ALIVE':'WAITING'}</div>
+        </div>`).join('')}
+    </div>
+  `;
+  renderBridgePanels();
+}
+
+function renderBridgePanels(){
+  const container=document.getElementById('bridge-panels');
+  if(!container)return;
+  container.innerHTML=`
+    <div class="bridge-row">
+      <div class="glass-panel" onclick="bridgeChoose('left')">⬅️</div>
+      <div class="glass-panel" onclick="bridgeChoose('right')">➡️</div>
+    </div>`;
+}
+
+function bridgeChoose(side){
+  if(bridgeDone)return;
+  socket.emit('sq_bridge_choose',{side});
+}
+
+socket.on('sq_bridge_result',({playerId,side,safe,step})=>{
+  if(playerId!==myId)return;
+  bridgeDone=true;
+  const panels=document.querySelectorAll('.glass-panel');
+  if(panels.length<2)return;
+  const chosen=side==='left'?panels[0]:panels[1];
+  const other=side==='left'?panels[1]:panels[0];
+  if(safe){
+    chosen.classList.add('safe');
+    bridgeStep=step;
+    document.getElementById('bridge-player')&&(document.getElementById('bridge-player').textContent=`🏃 Step ${step}`);
+    addT(()=>{
+      if(step>=bridgeTotal){
+        showWin('You crossed the bridge! You survived! 🌉');
+        socket.emit('sq_bridge_survived');
+      } else {
+        const status=document.getElementById('bridge-status');
+        if(status){status.className='status-banner status-wait';status.textContent=`STEP ${step+1} OF ${bridgeTotal}`;}
+        bridgeDone=false;
+        renderBridgePanels();
+      }
+    },700);
+  } else {
+    chosen.classList.add('danger');
+    other.classList.add('safe');
+    document.getElementById('bridge-status')&&(document.getElementById('bridge-status').className='status-banner status-stop');
+    document.getElementById('bridge-status')&&(document.getElementById('bridge-status').textContent='💥 YOU FELL!');
+    addT(()=>showDrink(`Wrong panel! You fell at step ${step+1}.<br>Take a drink! 💥`),600);
+  }
+});
+
+// ── TOW ──────────────────────────────────────────────
+let towRunning=false, towPower=0, towTeam='';
+
+function renderTOW(body,room){
+  towRunning=false; towPower=0;
+  const mid=Math.floor(room.players.length/2);
+  const team1=room.players.slice(0,mid);
+  const team2=room.players.slice(mid);
+  const me=room.players.find(p=>p.id===myId);
+  towTeam=team1.find(p=>p.id===myId)?'A':'B';
+
+  body.innerHTML=`
+    <div class="status-banner status-wait" id="tow-status">TEAMS ARE FORMING...</div>
+    <div class="timer-display" id="tow-timer">10</div>
+    <div class="tow-scores">
+      <div class="tow-score-item"><div class="tow-score-n" id="tow-a-score">0</div><div class="tow-score-l">TEAM A</div></div>
+      <div class="tow-score-item"><div class="tow-score-n" id="tow-b-score">0</div><div class="tow-score-l">TEAM B</div></div>
+    </div>
+    <div class="tow-bar-wrap"><div class="tow-bar" id="tow-bar" style="width:50%"></div></div>
+    <div class="rope-container"><div class="rope"><div class="rope-knot" id="tow-knot" style="left:50%"></div><div class="rope-center"></div></div></div>
+    <button class="tap-btn" id="tow-btn" onclick="towTap()">⚡ TAP FOR TEAM ${towTeam}! ⚡</button>
+    <div style="font-size:11px;color:var(--muted);text-align:center;">You are on Team ${towTeam}<br>Team A: ${team1.map(p=>p.name).join(', ')}<br>Team B: ${team2.map(p=>p.name).join(', ')}</div>
+  `;
+}
+
+function towTap(){
+  if(!towRunning)return;
+  towPower++;
+  socket.emit('sq_tow_tap',{team:towTeam});
+}
+
+socket.on('sq_tow_start',()=>{
+  towRunning=true;
+  const status=document.getElementById('tow-status');
+  if(status){status.className='status-banner status-go';status.textContent='⚡ TAP! TAP! TAP!';}
+});
+socket.on('sq_tow_update',({aScore,bScore})=>{
+  const total=aScore+bScore||1;
+  const pct=(aScore/total)*100;
+  document.getElementById('tow-bar')&&(document.getElementById('tow-bar').style.width=pct+'%');
+  document.getElementById('tow-knot')&&(document.getElementById('tow-knot').style.left=pct+'%');
+  document.getElementById('tow-a-score')&&(document.getElementById('tow-a-score').textContent=aScore);
+  document.getElementById('tow-b-score')&&(document.getElementById('tow-b-score').textContent=bScore);
+});
+socket.on('sq_tow_end',({winner,aScore,bScore})=>{
+  towRunning=false;
+  const myTeamWon=winner===towTeam;
+  const status=document.getElementById('tow-status');
+  if(status){status.className=myTeamWon?'status-banner status-go':'status-banner status-stop';status.textContent=myTeamWon?`🏆 TEAM ${winner} WINS!`:`💀 TEAM ${winner} WINS - YOU LOST!`;}
+  addT(()=>{
+    if(myTeamWon)showWin(`Team ${winner} won! ${aScore} vs ${bScore} taps! 💪`);
+    else showDrink(`Team ${winner} won! ${aScore} vs ${bScore} taps.<br>Losing team drinks! 🍺`);
+  },800);
+});
+
+// ── MARBLE ───────────────────────────────────────────
+let myMarbles=10, selectedMarbles=[];
+
+function renderMarble(body,room){
+  myMarbles=10; selectedMarbles=[];
+  body.innerHTML=`
+    <div class="status-banner status-wait" id="marble-status">SELECT MARBLES TO BET</div>
+    <div class="marble-hand">
+      <div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Opponent's Hand</div>
+      <div class="fist" id="opp-fist">✊</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px;" id="opp-count">? marbles hidden</div>
+    </div>
+    <div class="marble-scores" id="marble-scores"></div>
+    <div class="marble-bet-area" id="marble-bet-area"></div>
+    <div style="font-size:11px;color:var(--muted);text-align:center;">Tap marbles to bet, then guess</div>
+    <div class="guess-btns">
+      <button class="guess-btn odd-btn" onclick="marbleGuess('odd')">ODD</button>
+      <button class="guess-btn even-btn" onclick="marbleGuess('even')">EVEN</button>
+    </div>
+  `;
+  renderMarbleBets(room);
+  renderMarbleScores(room);
+}
+
+function renderMarbleBets(room){
+  const area=document.getElementById('marble-bet-area');
+  if(!area)return;
+  area.innerHTML='';
+  selectedMarbles=[];
+  for(let i=0;i<myMarbles;i++){
+    const m=document.createElement('div');
+    m.className='marble';m.textContent=i+1;
+    m.onclick=()=>{
+      const idx=selectedMarbles.indexOf(i);
+      if(idx===-1){selectedMarbles.push(i);m.classList.add('selected');}
+      else{selectedMarbles.splice(idx,1);m.classList.remove('selected');}
+      const bet=selectedMarbles.length;
+      const status=document.getElementById('marble-status');
+      if(status)status.textContent=bet>0?`Betting ${bet} — guess ODD or EVEN`:'SELECT MARBLES TO BET';
+    };
+    area.appendChild(m);
+  }
+}
+
+function renderMarbleScores(room){
+  const area=document.getElementById('marble-scores');
+  if(!area)return;
+  area.innerHTML=room.players.map(p=>`
+    <div class="marble-score-chip">
+      <div class="msc-n">${room.marbleCount?.[p.id]??10}</div>
+      <div class="msc-l">${p.emoji} ${p.name}</div>
+    </div>`).join('');
+}
+
+function marbleGuess(guess){
+  const bet=selectedMarbles.length;
+  if(!bet){document.getElementById('marble-status').textContent='⚠️ Select marbles first!';return;}
+  socket.emit('sq_marble_guess',{guess,bet});
+}
+
+socket.on('sq_marble_result',({correct,hidden,isOdd,bet,myNewCount,oppNewCount})=>{
+  myMarbles=myNewCount;
+  document.getElementById('opp-fist')&&(document.getElementById('opp-fist').textContent='🤚');
+  document.getElementById('opp-count')&&(document.getElementById('opp-count').textContent=`${hidden} marble${hidden>1?'s':''}`);
+  const status=document.getElementById('marble-status');
+  if(correct){
+    if(status){status.className='status-banner status-go';status.textContent=`✅ CORRECT! ${hidden} is ${isOdd?'ODD':'EVEN'}! +${bet}`;}
+    addT(()=>{
+      if(myNewCount<=0){showDrink('You lost all your marbles! 💀<br>Take 3 drinks!');}
+      else if(oppNewCount<=0){showWin(`You took all opponent's marbles! 🏆`);}
+      else{renderMarbleBets({players:currentRoom?.players||[]});if(document.getElementById('opp-fist'))document.getElementById('opp-fist').textContent='✊';if(document.getElementById('opp-count'))document.getElementById('opp-count').textContent='? marbles hidden';if(status){status.className='status-banner status-wait';status.textContent='SELECT MARBLES TO BET';}}
+    },1500);
+  } else {
+    if(status){status.className='status-banner status-stop';status.textContent=`❌ WRONG! ${hidden} is ${isOdd?'ODD':'EVEN'}! -${bet}`;}
+    addT(()=>showDrink(`Wrong! ${hidden} was ${isOdd?'ODD':'EVEN'}.<br>You lost ${bet} marble${bet>1?'s':''}. Take a drink! 🍺`),800);
+    addT(()=>{
+      if(myNewCount<=0){showDrink('You lost all your marbles! 💀<br>Take 3 drinks!');}
+      else{renderMarbleBets({players:currentRoom?.players||[]});if(document.getElementById('opp-fist'))document.getElementById('opp-fist').textContent='✊';if(document.getElementById('opp-count'))document.getElementById('opp-count').textContent='? marbles hidden';if(status){status.className='status-banner status-wait';status.textContent='SELECT MARBLES TO BET';}}
+    },2500);
+  }
+});
+
+document.getElementById('join-code')?.addEventListener('input',function(){this.value=this.value.toUpperCase();});
+</script>
+</body>
+</html>

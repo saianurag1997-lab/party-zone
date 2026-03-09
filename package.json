@@ -1,9 +1,7 @@
 {
   "name": "party-zone",
-  "version": "1.0.0",
-  "scripts": {
-    "start": "node server/server.js"
-  },
+  "version": "2.0.0",
+  "scripts": { "start": "node server/server.js" },
   "dependencies": {
     "express": "^4.18.2",
     "socket.io": "^4.7.4",
